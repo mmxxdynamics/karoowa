@@ -1,0 +1,34 @@
+# Karoowa single-node setup.
+#
+# Usage:
+#   1. Generate a key:  karoowa wallet new --output docker/validator.key
+#   2. Start:           docker compose -f docker/docker-compose.yml up -d
+#   3. Check:           curl http://localhost:8545/health
+
+services:
+  karoowa:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    command:
+      - node
+      - --validator-key
+      - /keys/validator.key
+      - --consensus
+      - poa
+      - --data-dir
+      - /data
+      - --rpc-port
+      - "8545"
+      - --p2p-port
+      - "30303"
+    ports:
+      - "8545:8545"
+      - "30303:30303"
+    volumes:
+      - karoowa-data:/data
+      - ./validator.key:/keys/validator.key:ro
+    restart: unless-stopped
+
+volumes:
+  karoowa-data:

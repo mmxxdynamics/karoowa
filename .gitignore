@@ -1,0 +1,38 @@
+# Rust
+target/
+**/*.rs.bk
+*.pdb
+
+# Cargo
+# Note: Cargo.lock IS tracked at the workspace root because we ship a binary
+# (the `karoowa` CLI). Library-only crates would .gitignore it.
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Env / secrets
+.env
+.env.local
+*.key
+*.pem
+license.key
+
+# Build artifacts
+*.log
+*.tmp
+dist/
+
+# Local data
+data/
+.karoowa/
+
+# Claude Code
+.claude/
+
+# Legacy design sketch (not part of the project)
+files/

@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+# test-devnet.sh — End-to-end devnet smoke test.
+#
+# Starts the 4-validator devnet, waits for block production, verifies
+# consensus, and tears down.
+#
+# Usage:
+#   cd docker && bash test-devnet.sh
+#
+# Prerequisites:
+#   - Docker and docker compose installed
+#   - karoowa binary built (for genesis generation)
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+echo "=== Karoowa Devnet E2E Test ==="
+echo ""
+
+# 1. Generate genesis + keys if not present.
+if [ ! -f genesis.validator0.key ]; then
+    echo "Generating genesis config and validator keys..."
+    cargo run --manifest-path ../Cargo.toml -p karoowa -- \
+        genesis generate --validators 4 --output genesis.toml
+    echo ""
+fi
+
+# 2. Build and start the devnet.
+echo "Starting 4-validator devnet..."
+docker compose -f devnet.yml up -d --build
+
+# 3. Wait for containers to be healthy.
+echo "Waiting for containers to start (30s)..."
+sleep 30
+
+# 4. Check health of validator-0.
+echo "Checking validator-0 health..."
+HEALTH=$(curl -sf http://localhost:8545/health || echo '{"status":"error"}')
+echo "  Health: $HEALTH"
+
+STATUS=$(echo "$HEALTH" | python3 -c "import sys,json; print(json.load(sys.stdin).get('status','error'))" 2>/dev/null || echo "error")
+if [ "$STATUS" != "ok" ]; then
+    echo "FAIL: validator-0 is not healthy"
+    docker compose -f devnet.yml logs --tail=50
+    docker compose -f devnet.yml down -v
+    exit 1
+fi
+
+# 5. Wait for block production (up to 60s).
+echo "Waiting for block production..."
+for i in $(seq 1 30); do
+    BLOCK_HEIGHT=$(curl -sf -X POST http://localhost:8545/rpc \
+        -H 'Content-Type: application/json' \
+        -d '{"jsonrpc":"2.0","id":1,"method":"kw_blockNumber","params":[]}' \
+        | python3 -c "import sys,json; print(json.load(sys.stdin).get('result',0))" 2>/dev/null || echo "0")
+
+    if [ "$BLOCK_HEIGHT" -ge 5 ] 2>/dev/null; then
+        echo "  Block height: $BLOCK_HEIGHT (>= 5) — PASS"
+        break
+    fi
+    echo "  Block height: $BLOCK_HEIGHT (waiting...)"
+    sleep 2
+done
+
+if [ "$BLOCK_HEIGHT" -lt 5 ] 2>/dev/null; then
+    echo "FAIL: block height did not reach 5 within 60s"
+    docker compose -f devnet.yml logs --tail=50
+    docker compose -f devnet.yml down -v
+    exit 1
+fi
+
+# 6. Check Grafana is reachable.
+echo "Checking Grafana..."
+GRAFANA_STATUS=$(curl -sf -o /dev/null -w "%{http_code}" http://localhost:3000/api/health || echo "000")
+if [ "$GRAFANA_STATUS" = "200" ]; then
+    echo "  Grafana: OK (HTTP 200)"
+else
+    echo "  Grafana: WARNING (HTTP $GRAFANA_STATUS) — dashboard may not be loaded yet"
+fi
+
+# 7. Tear down.
+echo ""
+echo "Tearing down devnet..."
+docker compose -f devnet.yml down -v
+
+echo ""
+echo "=== Devnet E2E Test PASSED ==="

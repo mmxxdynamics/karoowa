@@ -1,0 +1,23 @@
+[package]
+name = "karoowa-storage"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Karoowa storage layer — RocksDB-backed BlockStore, StateStore, ReceiptStore"
+
+[dependencies]
+karoowa-core = { workspace = true }
+karoowa-crypto = { workspace = true }
+rocksdb = "0.22"
+bincode = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"
+serde_json = { workspace = true }

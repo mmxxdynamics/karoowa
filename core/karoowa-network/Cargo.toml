@@ -1,0 +1,36 @@
+[package]
+name = "karoowa-network"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Karoowa P2P networking — libp2p Gossipsub + Kademlia for block/tx broadcast and peer discovery"
+
+[dependencies]
+karoowa-core = { workspace = true }
+karoowa-crypto = { workspace = true }
+
+libp2p = { version = "0.56", features = [
+    "dns",
+    "gossipsub",
+    "identify",
+    "kad",
+    "macros",
+    "noise",
+    "tcp",
+    "tokio",
+    "yamux",
+] }
+
+bincode = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tracing-subscriber = { workspace = true }
+tempfile = "3"

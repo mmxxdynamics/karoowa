@@ -1,0 +1,153 @@
+# Karoowa 4-validator devnet with Grafana + Prometheus.
+#
+# Usage:
+#   1. Generate keys:    karoowa genesis generate --validators 4 --output docker/genesis.toml
+#   2. Copy key files:   (genesis command creates docker/genesis.validator{0..3}.key)
+#   3. Start:            docker compose -f docker/devnet.yml up -d
+#   4. Grafana:          http://localhost:3000 (admin/admin)
+#   5. Check:            curl http://localhost:8545/health
+
+services:
+  validator-0:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    command:
+      - node
+      - --validator-key
+      - /keys/validator.key
+      - --consensus
+      - poa
+      - --data-dir
+      - /data
+      - --rpc-port
+      - "8545"
+      - --p2p-port
+      - "30303"
+    ports:
+      - "8545:8545"
+      - "30303:30303"
+    volumes:
+      - v0-data:/data
+      - ./genesis.validator0.key:/keys/validator.key:ro
+    networks:
+      - karoowa-net
+    restart: unless-stopped
+
+  validator-1:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    command:
+      - node
+      - --validator-key
+      - /keys/validator.key
+      - --consensus
+      - poa
+      - --data-dir
+      - /data
+      - --rpc-port
+      - "8545"
+      - --p2p-port
+      - "30303"
+      - --bootnodes
+      - /ip4/validator-0/tcp/30303
+    volumes:
+      - v1-data:/data
+      - ./genesis.validator1.key:/keys/validator.key:ro
+    networks:
+      - karoowa-net
+    restart: unless-stopped
+
+  validator-2:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    command:
+      - node
+      - --validator-key
+      - /keys/validator.key
+      - --consensus
+      - poa
+      - --data-dir
+      - /data
+      - --rpc-port
+      - "8545"
+      - --p2p-port
+      - "30303"
+      - --bootnodes
+      - /ip4/validator-0/tcp/30303
+    volumes:
+      - v2-data:/data
+      - ./genesis.validator2.key:/keys/validator.key:ro
+    networks:
+      - karoowa-net
+    restart: unless-stopped
+
+  validator-3:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    command:
+      - node
+      - --validator-key
+      - /keys/validator.key
+      - --consensus
+      - poa
+      - --data-dir
+      - /data
+      - --rpc-port
+      - "8545"
+      - --p2p-port
+      - "30303"
+      - --bootnodes
+      - /ip4/validator-0/tcp/30303
+    volumes:
+      - v3-data:/data
+      - ./genesis.validator3.key:/keys/validator.key:ro
+    networks:
+      - karoowa-net
+    restart: unless-stopped
+
+  # -- Observability stack ---------------------------------------------------
+
+  prometheus:
+    image: prom/prometheus:v3.4.1
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - karoowa-net
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:12.0.1
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    networks:
+      - karoowa-net
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+networks:
+  karoowa-net:
+    driver: bridge
+
+volumes:
+  v0-data:
+  v1-data:
+  v2-data:
+  v3-data:
+  prometheus-data:
+  grafana-data:

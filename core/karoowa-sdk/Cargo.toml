@@ -1,0 +1,29 @@
+[package]
+name = "karoowa-sdk"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Karoowa client SDK — wallet, NodeClient, transaction builders"
+
+[dependencies]
+karoowa-core = { workspace = true }
+karoowa-crypto = { workspace = true }
+
+bincode = { workspace = true }
+hex = "0.4"
+reqwest = { version = "0.12", features = ["json"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+karoowa-api = { path = "../karoowa-api" }
+karoowa-network = { path = "../karoowa-network" }
+karoowa-storage = { path = "../karoowa-storage" }
+tokio = { workspace = true }
+tempfile = "3"

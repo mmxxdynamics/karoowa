@@ -1,0 +1,34 @@
+[package]
+name = "karoowa-api"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Karoowa API gateway — JSON-RPC 2.0 + REST + WebSocket on a single port via Axum"
+
+[dependencies]
+karoowa-core = { workspace = true }
+karoowa-crypto = { workspace = true }
+karoowa-storage = { workspace = true }
+karoowa-network = { workspace = true }
+karoowa-consensus = { workspace = true }
+
+axum = { version = "0.8", features = ["ws"] }
+tokio = { workspace = true }
+bincode = { workspace = true }
+hex = "0.4"
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+metrics = "0.24"
+metrics-exporter-prometheus = { version = "0.16", default-features = false, features = ["http-listener"] }
+tower-http = { version = "0.6", features = ["cors"] }
+
+[dev-dependencies]
+reqwest = { version = "0.12", features = ["json"] }
+tracing-subscriber = { workspace = true }
+tempfile = "3"

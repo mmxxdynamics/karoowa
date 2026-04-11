@@ -1,0 +1,34 @@
+[package]
+name = "karoowa"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Karoowa CLI — node, wallet, devnet, client, genesis, network subcommands"
+
+[[bin]]
+name = "karoowa"
+path = "src/main.rs"
+
+[dependencies]
+karoowa-core = { workspace = true }
+karoowa-crypto = { workspace = true }
+karoowa-storage = { workspace = true }
+karoowa-network = { workspace = true }
+karoowa-consensus = { workspace = true }
+karoowa-api = { workspace = true }
+karoowa-sdk = { workspace = true }
+karoowa-agents = { workspace = true }
+
+clap = { version = "4", features = ["derive"] }
+libp2p = { version = "0.56", features = ["tokio"] }
+tokio = { workspace = true }
+toml = "0.8"
+serde = { workspace = true }
+serde_json = { workspace = true }
+hex = "0.4"
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

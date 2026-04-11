@@ -1,0 +1,23 @@
+[package]
+name = "karoowa-consensus"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Karoowa pluggable consensus — ConsensusEngine trait + reference PoA, PoS, BFT engines"
+
+[dependencies]
+karoowa-core = { workspace = true }
+karoowa-crypto = { workspace = true }
+karoowa-storage = { workspace = true }
+async-trait = "0.1"
+tokio = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

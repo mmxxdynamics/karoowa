@@ -1,0 +1,382 @@
+//! The `Network` struct — owns the libp2p Swarm and drives the event loop.
+//!
+//! Users interact with the network via the [`NetworkHandle`] returned by
+//! [`Network::start`]. The handle is cheaply cloneable and safe to share
+//! across tasks.
+
+use karoowa_core::{Block, Transaction};
+use libp2p::futures::StreamExt;
+use libp2p::gossipsub::{self, IdentTopic};
+use libp2p::identify;
+use libp2p::kad;
+use libp2p::swarm::SwarmEvent;
+use libp2p::{identity::Keypair, Multiaddr, PeerId, Swarm, SwarmBuilder};
+use std::collections::HashSet;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
+use tokio::sync::{broadcast, mpsc, oneshot};
+use tracing::{debug, info, warn};
+
+use crate::behaviour::{self, BehaviourEvent, KaroowaBehaviour, TOPIC_BLOCKS, TOPIC_TRANSACTIONS};
+use crate::config::NetworkConfig;
+use crate::error::NetworkError;
+
+/// Commands sent from the handle to the swarm event loop.
+enum Command {
+    Publish {
+        topic: String,
+        data: Vec<u8>,
+        reply: oneshot::Sender<Result<(), NetworkError>>,
+    },
+    Dial {
+        addr: Multiaddr,
+        reply: oneshot::Sender<Result<(), NetworkError>>,
+    },
+    PeerCount {
+        reply: oneshot::Sender<usize>,
+    },
+    ConnectedPeers {
+        reply: oneshot::Sender<Vec<PeerId>>,
+    },
+    ListenAddress {
+        reply: oneshot::Sender<Vec<Multiaddr>>,
+    },
+}
+
+/// Handle to the running network. Cheaply cloneable.
+#[derive(Clone)]
+pub struct NetworkHandle {
+    cmd_tx: mpsc::Sender<Command>,
+    block_tx: broadcast::Sender<Block>,
+    tx_tx: broadcast::Sender<Transaction>,
+    peer_count: Arc<AtomicUsize>,
+    local_peer_id: PeerId,
+}
+
+impl NetworkHandle {
+    /// This node's PeerId.
+    pub fn local_peer_id(&self) -> PeerId {
+        self.local_peer_id
+    }
+
+    /// Current connected peer count (lock-free read).
+    pub fn peer_count(&self) -> usize {
+        self.peer_count.load(Ordering::Relaxed)
+    }
+
+    /// Get the exact peer count by querying the swarm (async, goes through
+    /// the event loop).
+    pub async fn peer_count_exact(&self) -> Result<usize, NetworkError> {
+        let (reply, rx) = oneshot::channel();
+        self.cmd_tx
+            .send(Command::PeerCount { reply })
+            .await
+            .map_err(|_| NetworkError::NotRunning)?;
+        rx.await.map_err(|_| NetworkError::NotRunning)
+    }
+
+    /// Get the list of connected peer IDs.
+    pub async fn connected_peers(&self) -> Result<Vec<PeerId>, NetworkError> {
+        let (reply, rx) = oneshot::channel();
+        self.cmd_tx
+            .send(Command::ConnectedPeers { reply })
+            .await
+            .map_err(|_| NetworkError::NotRunning)?;
+        rx.await.map_err(|_| NetworkError::NotRunning)
+    }
+
+    /// Get the addresses this node is listening on.
+    pub async fn listen_addresses(&self) -> Result<Vec<Multiaddr>, NetworkError> {
+        let (reply, rx) = oneshot::channel();
+        self.cmd_tx
+            .send(Command::ListenAddress { reply })
+            .await
+            .map_err(|_| NetworkError::NotRunning)?;
+        rx.await.map_err(|_| NetworkError::NotRunning)
+    }
+
+    /// Broadcast a block to all connected peers.
+    pub async fn broadcast_block(&self, block: &Block) -> Result<(), NetworkError> {
+        let data = bincode::serialize(block)?;
+        let (reply, rx) = oneshot::channel();
+        self.cmd_tx
+            .send(Command::Publish {
+                topic: TOPIC_BLOCKS.to_string(),
+                data,
+                reply,
+            })
+            .await
+            .map_err(|_| NetworkError::NotRunning)?;
+        rx.await.map_err(|_| NetworkError::NotRunning)?
+    }
+
+    /// Broadcast a transaction to all connected peers.
+    pub async fn broadcast_transaction(&self, tx: &Transaction) -> Result<(), NetworkError> {
+        let data = bincode::serialize(tx)?;
+        let (reply, rx) = oneshot::channel();
+        self.cmd_tx
+            .send(Command::Publish {
+                topic: TOPIC_TRANSACTIONS.to_string(),
+                data,
+                reply,
+            })
+            .await
+            .map_err(|_| NetworkError::NotRunning)?;
+        rx.await.map_err(|_| NetworkError::NotRunning)?
+    }
+
+    /// Subscribe to incoming blocks from the network.
+    pub fn subscribe_blocks(&self) -> broadcast::Receiver<Block> {
+        self.block_tx.subscribe()
+    }
+
+    /// Subscribe to incoming transactions from the network.
+    pub fn subscribe_transactions(&self) -> broadcast::Receiver<Transaction> {
+        self.tx_tx.subscribe()
+    }
+
+    /// Dial a remote peer by multiaddress.
+    pub async fn dial(&self, addr: Multiaddr) -> Result<(), NetworkError> {
+        let (reply, rx) = oneshot::channel();
+        self.cmd_tx
+            .send(Command::Dial { addr, reply })
+            .await
+            .map_err(|_| NetworkError::NotRunning)?;
+        rx.await.map_err(|_| NetworkError::NotRunning)?
+    }
+}
+
+/// The network node. Call [`Network::start`] to spawn the event loop and
+/// get a [`NetworkHandle`].
+pub struct Network;
+
+impl Network {
+    /// Build the libp2p Swarm and identity from config.
+    fn build_swarm(
+        config: &NetworkConfig,
+    ) -> Result<(Swarm<KaroowaBehaviour>, PeerId), NetworkError> {
+        let keypair = match config.keypair_seed {
+            Some(seed) => {
+                let mut key_bytes = seed.to_vec();
+                // ed25519 secret key is 32 bytes; libp2p expects it via
+                // ed25519::Keypair which we build from the seed.
+                let secret =
+                    libp2p::identity::ed25519::SecretKey::try_from_bytes(&mut key_bytes)
+                        .map_err(|e| NetworkError::Transport(format!("bad keypair seed: {e}")))?;
+                let ed_keypair = libp2p::identity::ed25519::Keypair::from(secret);
+                Keypair::from(ed_keypair)
+            }
+            None => Keypair::generate_ed25519(),
+        };
+
+        let peer_id = keypair.public().to_peer_id();
+
+        let behaviour = behaviour::build_behaviour(
+            &keypair,
+            config.gossipsub_heartbeat,
+            config.mesh_n,
+            config.mesh_n_low,
+            config.mesh_n_high,
+        );
+
+        let swarm = SwarmBuilder::with_existing_identity(keypair)
+            .with_tokio()
+            .with_tcp(
+                libp2p::tcp::Config::default().nodelay(true),
+                libp2p::noise::Config::new,
+                libp2p::yamux::Config::default,
+            )
+            .map_err(|e| NetworkError::Transport(format!("tcp transport: {e}")))?
+            .with_dns()
+            .map_err(|e| NetworkError::Transport(format!("dns: {e}")))?
+            .with_behaviour(|_| behaviour)
+            .map_err(|e| NetworkError::Transport(format!("behaviour: {e}")))?
+            .build();
+
+        Ok((swarm, peer_id))
+    }
+
+    /// Start the network: builds the swarm, begins listening, connects to
+    /// bootnodes, and spawns the event loop. Returns a handle for interaction.
+    pub async fn start(config: NetworkConfig) -> Result<NetworkHandle, NetworkError> {
+        let (mut swarm, peer_id) = Self::build_swarm(&config)?;
+
+        // Start listening.
+        swarm
+            .listen_on(config.listen_addr.clone())
+            .map_err(|e| NetworkError::Listen(e.to_string()))?;
+
+        info!(
+            peer_id = %peer_id,
+            listen = %config.listen_addr,
+            bootnodes = config.bootnodes.len(),
+            "starting P2P network"
+        );
+
+        // Add bootnodes to Kademlia and dial them.
+        for addr in &config.bootnodes {
+            if let Err(e) = swarm.dial(addr.clone()) {
+                warn!(addr = %addr, error = %e, "failed to dial bootnode");
+            }
+        }
+
+        let (cmd_tx, cmd_rx) = mpsc::channel(256);
+        let (block_tx, _) = broadcast::channel(256);
+        let (tx_tx, _) = broadcast::channel(1024);
+        let peer_count = Arc::new(AtomicUsize::new(0));
+
+        let handle = NetworkHandle {
+            cmd_tx,
+            block_tx: block_tx.clone(),
+            tx_tx: tx_tx.clone(),
+            peer_count: Arc::clone(&peer_count),
+            local_peer_id: peer_id,
+        };
+
+        // Spawn the event loop.
+        tokio::spawn(event_loop(swarm, cmd_rx, block_tx, tx_tx, peer_count));
+
+        Ok(handle)
+    }
+}
+
+/// The swarm event loop — processes libp2p events and commands from handles.
+async fn event_loop(
+    mut swarm: Swarm<KaroowaBehaviour>,
+    mut cmd_rx: mpsc::Receiver<Command>,
+    block_tx: broadcast::Sender<Block>,
+    tx_tx: broadcast::Sender<Transaction>,
+    peer_count: Arc<AtomicUsize>,
+) {
+    let mut connected_peers: HashSet<PeerId> = HashSet::new();
+
+    loop {
+        tokio::select! {
+            // Handle commands from NetworkHandle.
+            cmd = cmd_rx.recv() => {
+                match cmd {
+                    Some(Command::Publish { topic, data, reply }) => {
+                        let topic = IdentTopic::new(topic);
+                        let result = swarm
+                            .behaviour_mut()
+                            .gossipsub
+                            .publish(topic, data)
+                            .map(|_| ())
+                            .map_err(|e| NetworkError::Publish(e.to_string()));
+                        let _ = reply.send(result);
+                    }
+                    Some(Command::Dial { addr, reply }) => {
+                        let result = swarm
+                            .dial(addr)
+                            .map_err(|e| NetworkError::Dial(e.to_string()));
+                        let _ = reply.send(result);
+                    }
+                    Some(Command::PeerCount { reply }) => {
+                        let _ = reply.send(connected_peers.len());
+                    }
+                    Some(Command::ConnectedPeers { reply }) => {
+                        let peers: Vec<PeerId> = connected_peers.iter().copied().collect();
+                        let _ = reply.send(peers);
+                    }
+                    Some(Command::ListenAddress { reply }) => {
+                        let addrs: Vec<Multiaddr> = swarm.listeners().cloned().collect();
+                        let _ = reply.send(addrs);
+                    }
+                    None => {
+                        debug!("all handles dropped, stopping event loop");
+                        return;
+                    }
+                }
+            }
+
+            // Handle swarm events.
+            event = swarm.select_next_some() => {
+                match event {
+                    SwarmEvent::NewListenAddr { address, .. } => {
+                        info!(addr = %address, "listening on");
+                    }
+
+                    SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+                        connected_peers.insert(peer_id);
+                        peer_count.store(connected_peers.len(), Ordering::Relaxed);
+                        debug!(peer = %peer_id, count = connected_peers.len(), "peer connected");
+
+                        // Add to Kademlia routing table.
+                        swarm.behaviour_mut().kademlia.add_address(&peer_id, Multiaddr::empty());
+                    }
+
+                    SwarmEvent::ConnectionClosed { peer_id, num_established, .. } => {
+                        if num_established == 0 {
+                            connected_peers.remove(&peer_id);
+                            peer_count.store(connected_peers.len(), Ordering::Relaxed);
+                            debug!(peer = %peer_id, count = connected_peers.len(), "peer disconnected");
+                        }
+                    }
+
+                    SwarmEvent::Behaviour(BehaviourEvent::Gossipsub(
+                        gossipsub::Event::Message { message, .. },
+                    )) => {
+                        let topic_str = message.topic.as_str();
+                        match topic_str {
+                            t if t == TOPIC_BLOCKS => {
+                                match bincode::deserialize::<Block>(&message.data) {
+                                    Ok(block) => {
+                                        debug!(
+                                            height = block.height(),
+                                            hash = %block.hash(),
+                                            "received block from network"
+                                        );
+                                        // Best-effort broadcast to subscribers; drop if no receivers.
+                                        let _ = block_tx.send(block);
+                                    }
+                                    Err(e) => {
+                                        warn!(error = %e, "failed to deserialize block from gossip");
+                                    }
+                                }
+                            }
+                            t if t == TOPIC_TRANSACTIONS => {
+                                match bincode::deserialize::<Transaction>(&message.data) {
+                                    Ok(tx) => {
+                                        debug!(
+                                            hash = %tx.hash(),
+                                            "received transaction from network"
+                                        );
+                                        let _ = tx_tx.send(tx);
+                                    }
+                                    Err(e) => {
+                                        warn!(error = %e, "failed to deserialize tx from gossip");
+                                    }
+                                }
+                            }
+                            _ => {
+                                debug!(topic = %topic_str, "message on unknown topic");
+                            }
+                        }
+                    }
+
+                    SwarmEvent::Behaviour(BehaviourEvent::Identify(event)) => {
+                        if let identify::Event::Received { peer_id, info, .. } = *event {
+                        // When we learn a peer's listen addresses via Identify,
+                        // feed them into Kademlia so the DHT knows how to route.
+                        for addr in &info.listen_addrs {
+                            swarm
+                                .behaviour_mut()
+                                .kademlia
+                                .add_address(&peer_id, addr.clone());
+                        }
+                        debug!(peer = %peer_id, addrs = info.listen_addrs.len(), "identify received");
+                        }
+                    }
+
+                    SwarmEvent::Behaviour(BehaviourEvent::Kademlia(
+                        kad::Event::RoutingUpdated { peer, .. },
+                    )) => {
+                        debug!(peer = %peer, "kademlia routing updated");
+                    }
+
+                    _ => {}
+                }
+            }
+        }
+    }
+}
