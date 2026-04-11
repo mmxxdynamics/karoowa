@@ -15,6 +15,7 @@ pub mod config;
 pub mod error;
 pub mod license;
 pub mod receipt;
+pub mod staking;
 pub mod state;
 pub mod transaction;
 
@@ -24,5 +25,6 @@ pub use config::{ChainConfig, GenesisConfig, GenesisValidationError};
 pub use error::{CoreError, CryptoError};
 pub use license::{Edition, LicenseGate, LicenseInfo, OssLicenseGate};
 pub use receipt::{Log, Receipt, TxStatus};
+pub use staking::{StakingError, ValidatorInfo, ValidatorSet};
 pub use state::{Account, AccountChange, StateDiff};
 pub use transaction::Transaction;

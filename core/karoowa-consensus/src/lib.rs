@@ -11,12 +11,14 @@ pub mod engine;
 pub mod error;
 pub mod mempool;
 pub mod poa;
+pub mod pos;
 pub mod producer;
 
 pub use engine::{ChainState, ConsensusEngine};
 pub use error::ConsensusError;
 pub use mempool::{Mempool, MempoolConfig, RejectReason};
 pub use poa::{PoAConfig, PoAEngine};
+pub use pos::PoSEngine;
 pub use producer::{
     BlockProducer, BlockReceiver, HeadHandle, MempoolHandle, PendingTxSender, ProducerConfig,
 };
