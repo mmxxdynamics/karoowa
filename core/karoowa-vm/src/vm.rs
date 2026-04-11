@@ -91,6 +91,7 @@ impl WasmVm {
     /// - `caller`: address of the caller
     /// - `value`: value sent with the call
     /// - `contract_address`: address of the contract being called
+    #[allow(clippy::too_many_arguments)]
     pub fn execute(
         &self,
         bytecode: &[u8],

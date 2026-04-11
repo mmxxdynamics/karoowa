@@ -25,10 +25,13 @@
 //! );
 //! ```
 
+pub mod context;
 pub mod error;
+pub mod executor;
 pub mod host;
 pub mod vm;
 
 pub use error::VmError;
+pub use executor::{Contract, ContractExecutor};
 pub use host::HostState;
 pub use vm::{ContractEvent, ExecutionResult, VmConfig, WasmVm};
