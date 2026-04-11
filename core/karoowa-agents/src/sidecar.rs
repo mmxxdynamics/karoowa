@@ -122,6 +122,36 @@ impl RateLimiter {
     }
 }
 
+/// Check if in-process mode is allowed for the current binary version.
+///
+/// From M3 onward, in-process mode is forbidden — agents must run in
+/// sidecar or cloud-hosted mode. This function checks the version and
+/// returns an error if the constraint is violated.
+pub fn enforce_runtime_mode(mode: RuntimeMode, version: &str) -> Result<(), String> {
+    if mode == RuntimeMode::InProcess {
+        // Parse major version from semver (e.g. "0.3.0" -> major_minor = 3).
+        let minor = version
+            .split('.')
+            .nth(1)
+            .and_then(|s| s.parse::<u32>().ok())
+            .unwrap_or(0);
+
+        if minor >= 3 {
+            return Err(format!(
+                "In-process agent mode is not allowed from v0.3.0 onward.\n\
+                 Karoowa v{version} requires sidecar mode for security.\n\
+                 Use: karoowa agent <name> --mode sidecar"
+            ));
+        }
+    }
+
+    if mode == RuntimeMode::CloudHosted {
+        return Err("Cloud-hosted mode is an enterprise feature (M4+).".into());
+    }
+
+    Ok(())
+}
+
 /// Generate a random-ish token from system time (not cryptographically secure
 /// — fine for local-only sidecar auth).
 fn rand_token() -> u64 {
@@ -175,6 +205,27 @@ mod tests {
         let limiter_limits = HashMap::new();
         let mut limiter = RateLimiter::new(limiter_limits);
         assert!(limiter.check("any_tool")); // no limit = allowed
+    }
+
+    #[test]
+    fn enforce_in_process_allowed_m2() {
+        assert!(enforce_runtime_mode(RuntimeMode::InProcess, "0.2.0").is_ok());
+    }
+
+    #[test]
+    fn enforce_in_process_blocked_m3() {
+        assert!(enforce_runtime_mode(RuntimeMode::InProcess, "0.3.0").is_err());
+    }
+
+    #[test]
+    fn enforce_sidecar_always_allowed() {
+        assert!(enforce_runtime_mode(RuntimeMode::Sidecar, "0.1.0").is_ok());
+        assert!(enforce_runtime_mode(RuntimeMode::Sidecar, "0.3.0").is_ok());
+    }
+
+    #[test]
+    fn enforce_cloud_hosted_blocked() {
+        assert!(enforce_runtime_mode(RuntimeMode::CloudHosted, "0.3.0").is_err());
     }
 
     #[test]

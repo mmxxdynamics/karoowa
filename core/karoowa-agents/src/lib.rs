@@ -39,6 +39,8 @@ pub use agents::cli_dev::CliDevAgent;
 pub use agents::monitoring::MonitoringAgent;
 pub use agents::observability::ObservabilityAgent;
 pub use agents::onboarding::OnboardingAgent;
+pub use agents::optimizer::OptimizerAgent;
+pub use agents::security::SecurityAgent;
 pub use error::AgentError;
 pub use memory::{InMemoryStore, MemoryEntry, MemoryStore};
 pub use provider::{create_provider, LlmProvider, ProviderConfig};
