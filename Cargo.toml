@@ -9,6 +9,7 @@ members = [
     "core/karoowa-api",
     "core/karoowa-sdk",
     "core/karoowa-agents",
+    "core/karoowa-vm",
     "core/karoowa",
 ]
 

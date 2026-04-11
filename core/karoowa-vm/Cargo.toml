@@ -1,0 +1,24 @@
+[package]
+name = "karoowa-vm"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Karoowa WASM virtual machine — contract execution environment"
+
+[dependencies]
+karoowa-core = { workspace = true }
+karoowa-crypto = { workspace = true }
+karoowa-storage = { workspace = true }
+
+wasmtime = "29"
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+wat = "1"
