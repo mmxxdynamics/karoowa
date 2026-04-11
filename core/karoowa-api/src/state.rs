@@ -5,6 +5,8 @@ use karoowa_network::NetworkHandle;
 use karoowa_storage::RocksStorage;
 use std::sync::Arc;
 
+use crate::subscriptions::SubscriptionManager;
+
 /// Application state shared across all handlers.
 #[derive(Clone)]
 pub struct AppState {
@@ -16,4 +18,6 @@ pub struct AppState {
     pub network: NetworkHandle,
     /// Transaction mempool.
     pub mempool: MempoolHandle,
+    /// WebSocket subscription manager.
+    pub subscriptions: SubscriptionManager,
 }

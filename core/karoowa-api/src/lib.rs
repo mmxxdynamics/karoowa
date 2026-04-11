@@ -19,8 +19,10 @@ pub mod rest;
 pub mod rpc;
 pub mod server;
 pub mod state;
+pub mod subscriptions;
 pub mod ws;
 
 pub use error::ApiError;
 pub use server::{build_router, start_server, ServerConfig};
 pub use state::AppState;
+pub use subscriptions::SubscriptionManager;

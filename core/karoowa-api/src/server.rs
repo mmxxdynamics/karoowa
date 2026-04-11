@@ -12,6 +12,7 @@ use tracing::info;
 
 use crate::error::ApiError;
 use crate::state::AppState;
+use crate::subscriptions::SubscriptionManager;
 use crate::{health, rest, rpc, ws};
 
 /// Configuration for the API server.
@@ -57,14 +58,24 @@ pub async fn start_server(
     config: ServerConfig,
     storage: Arc<RocksStorage>,
     network: NetworkHandle,
-) -> Result<(SocketAddr, MempoolHandle, tokio::task::JoinHandle<()>), ApiError> {
+) -> Result<
+    (
+        SocketAddr,
+        MempoolHandle,
+        SubscriptionManager,
+        tokio::task::JoinHandle<()>,
+    ),
+    ApiError,
+> {
     let mempool = MempoolHandle::new(Mempool::new(MempoolConfig::default()));
+    let subscriptions = SubscriptionManager::new();
 
     let state = AppState {
         chain_id: config.chain_id,
         storage,
         network,
         mempool: mempool.clone(),
+        subscriptions: subscriptions.clone(),
     };
 
     let app = build_router(state);
@@ -83,5 +94,5 @@ pub async fn start_server(
         axum::serve(listener, app).await.ok();
     });
 
-    Ok((addr, mempool, handle))
+    Ok((addr, mempool, subscriptions, handle))
 }

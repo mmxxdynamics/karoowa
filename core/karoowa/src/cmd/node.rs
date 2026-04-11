@@ -104,7 +104,7 @@ pub async fn run(args: NodeArgs) -> Result<(), Box<dyn std::error::Error>> {
         bind_addr: SocketAddr::from(([0, 0, 0, 0], args.rpc_port)),
         chain_id: 1,
     };
-    let (api_addr, _mempool, _api_handle) =
+    let (api_addr, _mempool, _subscriptions, _api_handle) =
         start_server(server_config, Arc::clone(&storage), network.clone()).await?;
 
     info!(addr = %api_addr, "API server started");

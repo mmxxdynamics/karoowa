@@ -29,9 +29,10 @@ async fn start_test_node() -> (String, TempDir, Arc<RocksStorage>) {
         chain_id: 42,
     };
 
-    let (addr, _mempool, _handle) = start_server(server_config, Arc::clone(&storage), network)
-        .await
-        .unwrap();
+    let (addr, _mempool, _subs, _handle) =
+        start_server(server_config, Arc::clone(&storage), network)
+            .await
+            .unwrap();
 
     (format!("http://{addr}"), dir, storage)
 }
