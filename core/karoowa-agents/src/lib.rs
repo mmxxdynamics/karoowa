@@ -30,13 +30,17 @@ pub mod error;
 pub mod memory;
 pub mod provider;
 pub mod providers;
+pub mod sidecar;
 pub mod types;
 
 pub use agent::{run_agent_flow, run_agent_step, Agent};
+pub use agents::cicd::CiCdAgent;
 pub use agents::cli_dev::CliDevAgent;
 pub use agents::monitoring::MonitoringAgent;
+pub use agents::observability::ObservabilityAgent;
 pub use agents::onboarding::OnboardingAgent;
 pub use error::AgentError;
 pub use memory::{InMemoryStore, MemoryEntry, MemoryStore};
 pub use provider::{create_provider, LlmProvider, ProviderConfig};
+pub use sidecar::{RuntimeMode, SidecarConfig};
 pub use types::*;
