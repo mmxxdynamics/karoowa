@@ -2,12 +2,12 @@
 
 use axum::routing::{get, post};
 use axum::Router;
+use karoowa_consensus::{Mempool, MempoolConfig, MempoolHandle};
 use karoowa_network::NetworkHandle;
 use karoowa_storage::RocksStorage;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
-use tokio::sync::Mutex;
 use tracing::info;
 
 use crate::error::ApiError;
@@ -51,18 +51,20 @@ pub fn build_router(state: AppState) -> Router {
         .with_state(state)
 }
 
-/// Start the API server. Returns the bound address (useful when binding to
-/// port 0 for tests).
+/// Start the API server. Returns the bound address, a mempool handle
+/// (for the block producer to use), and the server task handle.
 pub async fn start_server(
     config: ServerConfig,
     storage: Arc<RocksStorage>,
     network: NetworkHandle,
-) -> Result<(SocketAddr, tokio::task::JoinHandle<()>), ApiError> {
+) -> Result<(SocketAddr, MempoolHandle, tokio::task::JoinHandle<()>), ApiError> {
+    let mempool = MempoolHandle::new(Mempool::new(MempoolConfig::default()));
+
     let state = AppState {
         chain_id: config.chain_id,
         storage,
         network,
-        pending_txs: Arc::new(Mutex::new(Vec::new())),
+        mempool: mempool.clone(),
     };
 
     let app = build_router(state);
@@ -81,5 +83,5 @@ pub async fn start_server(
         axum::serve(listener, app).await.ok();
     });
 
-    Ok((addr, handle))
+    Ok((addr, mempool, handle))
 }

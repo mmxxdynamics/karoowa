@@ -294,20 +294,31 @@ async fn handle_send_raw_transaction(state: &AppState, req: &JsonRpcRequest) -> 
 
     let tx_hash = tx.hash();
 
-    // Add to pending pool.
-    state.pending_txs.lock().await.push(tx.clone());
+    // Add to mempool.
+    if let Err(reason) = state.mempool.submit(tx.clone()).await {
+        return JsonRpcResponse::error(
+            req.id.clone(),
+            INTERNAL_ERROR,
+            format!("mempool rejected: {reason:?}"),
+        );
+    }
 
     // Broadcast to network (best-effort).
     if let Err(e) = state.network.broadcast_transaction(&tx).await {
-        debug!(error = %e, "failed to broadcast tx, added to pending pool only");
+        debug!(error = %e, "failed to broadcast tx, added to mempool only");
     }
 
     JsonRpcResponse::success(req.id.clone(), Value::from(tx_hash.to_string()))
 }
 
 async fn handle_pending_transactions(state: &AppState, req: &JsonRpcRequest) -> JsonRpcResponse {
-    let pending = state.pending_txs.lock().await;
-    let hashes: Vec<String> = pending.iter().map(|tx| tx.hash().to_string()).collect();
+    let hashes: Vec<String> = state
+        .mempool
+        .pending_hashes()
+        .await
+        .iter()
+        .map(|h| h.to_string())
+        .collect();
     JsonRpcResponse::success(
         req.id.clone(),
         serde_json::to_value(hashes).unwrap_or(Value::Array(vec![])),

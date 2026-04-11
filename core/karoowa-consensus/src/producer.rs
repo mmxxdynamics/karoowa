@@ -15,6 +15,7 @@ use tracing::{debug, info, warn};
 
 use crate::engine::{ChainState, ConsensusEngine};
 use crate::error::ConsensusError;
+use crate::mempool::Mempool;
 
 /// A handle to the block producer that receives newly produced blocks.
 pub type BlockReceiver = mpsc::Receiver<Block>;
@@ -167,6 +168,65 @@ impl PendingTxSender {
     /// Add a transaction to the pending pool.
     pub async fn submit(&self, tx: Transaction) {
         self.txs.lock().await.push(tx);
+    }
+}
+
+/// Thread-safe handle to a shared [`Mempool`].
+///
+/// Used by the API layer to submit transactions and query pending state,
+/// and by the block producer to drain transactions for block proposals.
+#[derive(Clone)]
+pub struct MempoolHandle {
+    pool: Arc<Mutex<Mempool>>,
+}
+
+impl MempoolHandle {
+    /// Create a new handle wrapping a mempool.
+    pub fn new(mempool: Mempool) -> Self {
+        MempoolHandle {
+            pool: Arc::new(Mutex::new(mempool)),
+        }
+    }
+
+    /// Submit a transaction to the mempool. Returns the rejection reason
+    /// if the transaction was not accepted.
+    pub async fn submit(&self, tx: Transaction) -> Result<(), crate::mempool::RejectReason> {
+        self.pool.lock().await.insert(tx)
+    }
+
+    /// Get the number of pending transactions.
+    pub async fn len(&self) -> usize {
+        self.pool.lock().await.len()
+    }
+
+    /// Check if the mempool is empty.
+    pub async fn is_empty(&self) -> bool {
+        self.pool.lock().await.is_empty()
+    }
+
+    /// Get pending transaction hashes.
+    pub async fn pending_hashes(&self) -> Vec<karoowa_crypto::Hash> {
+        self.pool.lock().await.pending_hashes()
+    }
+
+    /// Get up to `limit` transactions sorted by gas price for block proposal.
+    pub async fn pending_sorted(&self, limit: usize) -> Vec<Transaction> {
+        self.pool.lock().await.pending_sorted(limit)
+    }
+
+    /// Remove transactions that were included in a block.
+    pub async fn remove_mined(&self, tx_hashes: &[karoowa_crypto::Hash]) {
+        self.pool.lock().await.remove_batch(tx_hashes);
+    }
+
+    /// Evict expired transactions.
+    pub async fn evict_expired(&self) -> usize {
+        self.pool.lock().await.evict_expired()
+    }
+
+    /// Check if a transaction is in the mempool.
+    pub async fn contains(&self, hash: &karoowa_crypto::Hash) -> bool {
+        self.pool.lock().await.contains(hash)
     }
 }
 
