@@ -7,6 +7,7 @@
 //! The [`BlockProducer`] drives the propose → validate → broadcast loop as a
 //! long-lived tokio task.
 
+pub mod bft;
 pub mod engine;
 pub mod error;
 pub mod mempool;
@@ -14,6 +15,7 @@ pub mod poa;
 pub mod pos;
 pub mod producer;
 
+pub use bft::BFTEngine;
 pub use engine::{ChainState, ConsensusEngine};
 pub use error::ConsensusError;
 pub use mempool::{Mempool, MempoolConfig, RejectReason};

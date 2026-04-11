@@ -60,7 +60,9 @@ impl ConsensusEngine for PoSEngine {
         // Use try_read — this succeeds unless a write lock is held,
         // which only happens briefly during propose_block.
         match self.validator_set.try_read() {
-            Ok(vs) => vs.weighted_leader(state.next_height).unwrap_or(Address::ZERO),
+            Ok(vs) => vs
+                .weighted_leader(state.next_height)
+                .unwrap_or(Address::ZERO),
             Err(_) => Address::ZERO,
         }
     }
@@ -125,9 +127,10 @@ impl ConsensusEngine for PoSEngine {
     }
 
     fn validate_block(&self, block: &Block, state: &ChainState) -> Result<(), ConsensusError> {
-        let vs = self.validator_set.try_read().map_err(|_| {
-            ConsensusError::InvalidBlock("validator set lock contention".into())
-        })?;
+        let vs = self
+            .validator_set
+            .try_read()
+            .map_err(|_| ConsensusError::InvalidBlock("validator set lock contention".into()))?;
 
         // 1. Proposer must be an active validator.
         let validator = vs.validators.get(&block.header.proposer).ok_or_else(|| {
