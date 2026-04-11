@@ -25,12 +25,14 @@
 //! );
 //! ```
 
+pub mod abi;
 pub mod context;
 pub mod error;
 pub mod executor;
 pub mod host;
 pub mod vm;
 
+pub use abi::{encode_call, function_selector, AbiFunction, AbiType, AbiValue, ContractAbi};
 pub use error::VmError;
 pub use executor::{Contract, ContractExecutor};
 pub use host::HostState;
