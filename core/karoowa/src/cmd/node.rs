@@ -73,7 +73,7 @@ pub async fn run(args: NodeArgs) -> Result<(), Box<dyn std::error::Error>> {
     let storage = Arc::new(RocksStorage::open(&args.data_dir)?);
 
     // Start P2P network.
-    let bootnodes: Vec<libp2p::Multiaddr> = args
+    let mut bootnodes: Vec<libp2p::Multiaddr> = args
         .bootnodes
         .iter()
         .filter_map(|s| s.parse().ok())
@@ -81,7 +81,11 @@ pub async fn run(args: NodeArgs) -> Result<(), Box<dyn std::error::Error>> {
 
     if let Some(ref network_name) = args.join {
         if network_name == "public-devnet" {
-            info!("joining public devnet (bootnodes will be added when devnet is provisioned)");
+            // Public devnet bootnode (AWS Lightsail, eu-west-2).
+            let devnet_bootnode: libp2p::Multiaddr =
+                "/ip4/18.171.150.73/tcp/30303".parse().unwrap();
+            bootnodes.push(devnet_bootnode);
+            info!("joining public devnet — bootnode at 18.171.150.73:30303");
         }
     }
 
