@@ -24,12 +24,14 @@
 //! ```
 
 pub mod behaviour;
+pub mod bridge;
 pub mod config;
 pub mod error;
 pub mod light_client;
 pub mod state_sync;
 pub mod swarm;
 
+pub use bridge::{BridgeProtocolProvider, BridgeRequest, BridgeResponse};
 pub use config::NetworkConfig;
 pub use error::NetworkError;
 pub use light_client::{LightClientProvider, LightClientRequest, LightClientResponse};

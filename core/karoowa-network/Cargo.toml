@@ -14,6 +14,7 @@ karoowa-core = { workspace = true }
 karoowa-crypto = { workspace = true }
 karoowa-storage = { workspace = true }
 karoowa-trie = { workspace = true }
+karoowa-bridge = { workspace = true }
 
 libp2p = { version = "0.56", features = [
     "dns",

@@ -19,12 +19,14 @@ use tokio::sync::{broadcast, mpsc, oneshot};
 use tracing::{debug, info, warn};
 
 use crate::behaviour::{self, BehaviourEvent, KaroowaBehaviour, TOPIC_BLOCKS, TOPIC_TRANSACTIONS};
+use crate::bridge::{BridgeProtocolProvider, BridgeRequest, BridgeResponse};
 use crate::config::NetworkConfig;
 use crate::error::NetworkError;
 use crate::light_client::{LightClientProvider, LightClientRequest, LightClientResponse};
 use crate::state_sync::{SnapshotProvider, SnapshotRequest, SnapshotResponse};
 
 /// Commands sent from the handle to the swarm event loop.
+#[allow(clippy::large_enum_variant)]
 enum Command {
     Publish {
         topic: String,
@@ -60,6 +62,15 @@ enum Command {
     },
     SetLightProvider {
         provider: Arc<dyn LightClientProvider>,
+        reply: oneshot::Sender<()>,
+    },
+    SendBridgeRequest {
+        peer: PeerId,
+        request: BridgeRequest,
+        reply: oneshot::Sender<Result<BridgeResponse, NetworkError>>,
+    },
+    SetBridgeProvider {
+        provider: Arc<dyn BridgeProtocolProvider>,
         reply: oneshot::Sender<()>,
     },
 }
@@ -230,6 +241,38 @@ impl NetworkHandle {
         rx.await.map_err(|_| NetworkError::NotRunning)?;
         Ok(())
     }
+
+    /// Send a bridge request to a specific peer and await the response.
+    pub async fn request_bridge(
+        &self,
+        peer: PeerId,
+        request: BridgeRequest,
+    ) -> Result<BridgeResponse, NetworkError> {
+        let (reply, rx) = oneshot::channel();
+        self.cmd_tx
+            .send(Command::SendBridgeRequest {
+                peer,
+                request,
+                reply,
+            })
+            .await
+            .map_err(|_| NetworkError::NotRunning)?;
+        rx.await.map_err(|_| NetworkError::NotRunning)?
+    }
+
+    /// Install a bridge provider for serving incoming bridge protocol requests.
+    pub async fn set_bridge_provider(
+        &self,
+        provider: Arc<dyn BridgeProtocolProvider>,
+    ) -> Result<(), NetworkError> {
+        let (reply, rx) = oneshot::channel();
+        self.cmd_tx
+            .send(Command::SetBridgeProvider { provider, reply })
+            .await
+            .map_err(|_| NetworkError::NotRunning)?;
+        rx.await.map_err(|_| NetworkError::NotRunning)?;
+        Ok(())
+    }
 }
 
 /// The network node. Call [`Network::start`] to spawn the event loop and
@@ -345,9 +388,15 @@ async fn event_loop(
         OutboundRequestId,
         oneshot::Sender<Result<LightClientResponse, NetworkError>>,
     > = HashMap::new();
+    // Pending bridge requests we sent.
+    let mut pending_bridge_requests: HashMap<
+        OutboundRequestId,
+        oneshot::Sender<Result<BridgeResponse, NetworkError>>,
+    > = HashMap::new();
     // Optional providers for serving incoming requests.
     let mut snapshot_provider: Option<Arc<dyn SnapshotProvider>> = None;
     let mut light_provider: Option<Arc<dyn LightClientProvider>> = None;
+    let mut bridge_provider: Option<Arc<dyn BridgeProtocolProvider>> = None;
 
     loop {
         tokio::select! {
@@ -401,6 +450,17 @@ async fn event_loop(
                     }
                     Some(Command::SetLightProvider { provider, reply }) => {
                         light_provider = Some(provider);
+                        let _ = reply.send(());
+                    }
+                    Some(Command::SendBridgeRequest { peer, request, reply }) => {
+                        let req_id = swarm
+                            .behaviour_mut()
+                            .bridge
+                            .send_request(&peer, request);
+                        pending_bridge_requests.insert(req_id, reply);
+                    }
+                    Some(Command::SetBridgeProvider { provider, reply }) => {
+                        bridge_provider = Some(provider);
                         let _ = reply.send(());
                     }
                     None => {
@@ -606,6 +666,62 @@ async fn event_loop(
                         }
                     }
 
+                    SwarmEvent::Behaviour(BehaviourEvent::Bridge(event)) => {
+                        match *event {
+                            request_response::Event::Message { message, .. } => {
+                                match message {
+                                    request_response::Message::Request {
+                                        request,
+                                        channel,
+                                        ..
+                                    } => {
+                                        let response = match &bridge_provider {
+                                            Some(provider) => handle_bridge_request(
+                                                provider.as_ref(),
+                                                request,
+                                            )
+                                            .await,
+                                            None => BridgeResponse::Error(
+                                                "no bridge provider configured".into(),
+                                            ),
+                                        };
+                                        let _ = swarm
+                                            .behaviour_mut()
+                                            .bridge
+                                            .send_response(channel, response);
+                                    }
+                                    request_response::Message::Response {
+                                        request_id,
+                                        response,
+                                    } => {
+                                        if let Some(reply) =
+                                            pending_bridge_requests.remove(&request_id)
+                                        {
+                                            let _ = reply.send(Ok(response));
+                                        }
+                                    }
+                                }
+                            }
+                            request_response::Event::OutboundFailure {
+                                request_id,
+                                error,
+                                ..
+                            } => {
+                                if let Some(reply) =
+                                    pending_bridge_requests.remove(&request_id)
+                                {
+                                    let _ = reply.send(Err(NetworkError::Transport(format!(
+                                        "outbound bridge failure: {error}"
+                                    ))));
+                                }
+                            }
+                            request_response::Event::InboundFailure { error, .. } => {
+                                warn!(error = %error, "inbound bridge failure");
+                            }
+                            request_response::Event::ResponseSent { .. } => {}
+                        }
+                    }
+
                     _ => {}
                 }
             }
@@ -651,6 +767,37 @@ async fn handle_light_request(
         LightClientRequest::GetStateProof { key, height } => {
             let proof = provider.get_state_proof(&key, height).await;
             LightClientResponse::StateProof(proof)
+        }
+    }
+}
+
+/// Handle an incoming bridge request by querying the local provider.
+async fn handle_bridge_request(
+    provider: &dyn BridgeProtocolProvider,
+    request: BridgeRequest,
+) -> BridgeResponse {
+    match request {
+        BridgeRequest::SubmitPacket {
+            packet,
+            proof,
+            source_state_root,
+        } => {
+            let ack = provider
+                .submit_packet(packet, proof, source_state_root)
+                .await;
+            BridgeResponse::Acknowledgement(ack)
+        }
+        BridgeRequest::GetPacketProof { packet_hash } => {
+            let proof = provider.get_packet_proof(&packet_hash).await;
+            BridgeResponse::PacketProof(proof)
+        }
+        BridgeRequest::GetAcknowledgement { packet_hash } => {
+            match provider.get_acknowledgement(&packet_hash).await {
+                Some(ack) => BridgeResponse::Acknowledgement(ack),
+                None => {
+                    BridgeResponse::Error(format!("no acknowledgement for packet {packet_hash}"))
+                }
+            }
         }
     }
 }

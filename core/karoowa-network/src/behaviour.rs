@@ -16,6 +16,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::time::Duration;
 
+use crate::bridge::{self, BridgeCodec};
 use crate::light_client::{self, LightClientCodec};
 use crate::state_sync::{self, StateSyncCodec};
 
@@ -32,6 +33,7 @@ pub struct KaroowaBehaviour {
     pub identify: identify::Behaviour,
     pub state_sync: request_response::Behaviour<StateSyncCodec>,
     pub light_client: request_response::Behaviour<LightClientCodec>,
+    pub bridge: request_response::Behaviour<BridgeCodec>,
 }
 
 /// Events emitted by the composed behaviour.
@@ -42,6 +44,7 @@ pub enum BehaviourEvent {
     Identify(Box<identify::Event>),
     StateSync(Box<state_sync::StateSyncEvent>),
     LightClient(Box<light_client::LightClientEvent>),
+    Bridge(Box<bridge::BridgeProtocolEvent>),
 }
 
 impl From<gossipsub::Event> for BehaviourEvent {
@@ -71,6 +74,12 @@ impl From<state_sync::StateSyncEvent> for BehaviourEvent {
 impl From<light_client::LightClientEvent> for BehaviourEvent {
     fn from(e: light_client::LightClientEvent) -> Self {
         BehaviourEvent::LightClient(Box::new(e))
+    }
+}
+
+impl From<bridge::BridgeProtocolEvent> for BehaviourEvent {
+    fn from(e: bridge::BridgeProtocolEvent) -> Self {
+        BehaviourEvent::Bridge(Box::new(e))
     }
 }
 
@@ -142,11 +151,15 @@ pub fn build_behaviour(
     // -- Light client request-response --
     let light_client = light_client::build_behaviour();
 
+    // -- Bridge request-response --
+    let bridge = bridge::build_behaviour();
+
     KaroowaBehaviour {
         gossipsub,
         kademlia,
         identify,
         state_sync,
         light_client,
+        bridge,
     }
 }
