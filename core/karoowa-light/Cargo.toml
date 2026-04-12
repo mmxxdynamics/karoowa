@@ -1,0 +1,19 @@
+[package]
+name = "karoowa-light"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Karoowa light client — header verification and Merkle state proofs"
+
+[dependencies]
+karoowa-core = { workspace = true }
+karoowa-crypto = { workspace = true }
+karoowa-trie = { workspace = true }
+
+serde = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }

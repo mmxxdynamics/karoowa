@@ -68,11 +68,7 @@ impl Codec for StateSyncCodec {
     type Request = SnapshotRequest;
     type Response = SnapshotResponse;
 
-    async fn read_request<T>(
-        &mut self,
-        _: &Self::Protocol,
-        io: &mut T,
-    ) -> io::Result<Self::Request>
+    async fn read_request<T>(&mut self, _: &Self::Protocol, io: &mut T) -> io::Result<Self::Request>
     where
         T: AsyncRead + Unpin + Send,
     {
@@ -156,8 +152,8 @@ where
 
 /// Construct the libp2p `request_response::Behaviour` for state sync.
 pub fn build_behaviour() -> request_response::Behaviour<StateSyncCodec> {
-    let protocol = StreamProtocol::try_from_owned(PROTOCOL_NAME.to_string())
-        .expect("valid protocol name");
+    let protocol =
+        StreamProtocol::try_from_owned(PROTOCOL_NAME.to_string()).expect("valid protocol name");
     let cfg = request_response::Config::default();
     request_response::Behaviour::new(
         std::iter::once((protocol, request_response::ProtocolSupport::Full)),

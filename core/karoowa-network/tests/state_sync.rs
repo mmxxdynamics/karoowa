@@ -98,11 +98,7 @@ async fn list_snapshots_over_network() {
         )
         .unwrap();
     store
-        .create_snapshot(
-            20,
-            sha3_256(b"state-at-20"),
-            vec![make_entry(3, 300)],
-        )
+        .create_snapshot(20, sha3_256(b"state-at-20"), vec![make_entry(3, 300)])
         .unwrap();
 
     let (handle_a, handle_b) = start_pair_with_provider(Arc::clone(&store)).await;
@@ -124,11 +120,7 @@ async fn list_snapshots_over_network() {
 async fn get_manifest_over_network() {
     let store = Arc::new(InMemorySnapshotStore::new());
     let original_manifest = store
-        .create_snapshot(
-            42,
-            sha3_256(b"state-42"),
-            vec![make_entry(1, 1000)],
-        )
+        .create_snapshot(42, sha3_256(b"state-42"), vec![make_entry(1, 1000)])
         .unwrap();
 
     let (handle_a, handle_b) = start_pair_with_provider(Arc::clone(&store)).await;
@@ -235,10 +227,7 @@ async fn end_to_end_snapshot_reconstruction() {
         let resp = handle_b
             .request_snapshot(
                 handle_a.local_peer_id(),
-                SnapshotRequest::GetChunk {
-                    height: 99,
-                    index,
-                },
+                SnapshotRequest::GetChunk { height: 99, index },
             )
             .await
             .unwrap();
@@ -256,7 +245,8 @@ async fn end_to_end_snapshot_reconstruction() {
     // Verify all original entries are present.
     assert_eq!(all_entries.len(), entries.len());
     for original in &entries {
-        assert!(all_entries.iter().any(|e| e.address == original.address
-            && e.account.balance == original.account.balance));
+        assert!(all_entries.iter().any(
+            |e| e.address == original.address && e.account.balance == original.account.balance
+        ));
     }
 }
