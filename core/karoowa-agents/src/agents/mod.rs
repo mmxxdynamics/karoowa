@@ -1,7 +1,9 @@
 pub mod cicd;
 pub mod cli_dev;
+pub mod governance;
 pub mod monitoring;
 pub mod observability;
 pub mod onboarding;
 pub mod optimizer;
 pub mod security;
+pub mod treasury;
