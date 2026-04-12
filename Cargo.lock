@@ -2217,6 +2217,7 @@ dependencies = [
  "karoowa-core",
  "karoowa-crypto",
  "karoowa-storage",
+ "proptest",
  "serde",
  "serde_json",
  "thiserror 1.0.69",

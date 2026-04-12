@@ -49,15 +49,42 @@ clean going in.
   represents protocol wire types that cannot be `Box`-wrapped without
   breaking serialization.
 
-## What Is *Not* Yet Done (tracked for Phase 6.1)
+## Fuzz / Property Coverage (Phase 6.1 / 6.1.b)
 
-- [ ] `cargo fuzz` targets for: SMT proof verification, tx decoding,
-      WASM instantiation path, bridge packet parsing, governance
-      proposal submission.
-- [ ] Coverage report ≥ 80% on `karoowa-consensus`, `karoowa-vm`,
-      `karoowa-bridge` (currently measured only informally).
-- [ ] Miri run on pure-Rust crates that don't pull in FFI.
-- [ ] Supply-chain scan via `cargo audit` + `cargo deny` in CI.
+Karoowa uses `proptest` rather than `cargo fuzz` for the core fuzz
+harnesses — stays on stable Rust, runs in CI, catches the same class of
+crash/panic bugs for our adversarial input surfaces. Current coverage:
 
-These are open tasks for Phase 6.1 and should be completed before the
-`v1.0.0-rc1` tag is cut.
+| Target | Crate | Cases/prop | Properties |
+|---|---|---|---|
+| SMT proof system | `karoowa-trie` | 32 | 5 |
+| Bridge packet codec | `karoowa-bridge` | 64 | 4 |
+| Transaction envelope codec | `karoowa-core` | 64 | 6 |
+| WASM deploy path | `karoowa-vm` | 32 | 3 |
+
+Common invariants covered: bincode round-trip, hash determinism, junk
+bytes never panic, tamper/forgery detection. See the individual
+`tests/proptest_*.rs` files for the full list.
+
+## Supply Chain
+
+- ✅ `cargo deny` in CI — license policy + banned crates
+- ✅ `cargo audit` in CI (rustsec/audit-check) — vulnerability DB scan
+
+## Coverage
+
+- ✅ `cargo llvm-cov` job in CI generates `lcov.info` as a workflow
+  artifact and prints a summary table to the job log.
+- ⏳ ≥80% threshold enforcement on `karoowa-consensus`, `karoowa-vm`,
+  `karoowa-bridge` — gate flipped once baselines stabilize.
+
+## Still Open for rc1
+
+- [ ] Nightly `cargo fuzz` targets for VM module validation with
+      structured WASM generation (the proptest harness covers random
+      bytes + WASM-magic-prefix junk, but not semantically-valid-yet-
+      adversarial modules). Deferred to post-rc1 only if the wasmtime
+      upstream fuzz suite is deemed sufficient coverage.
+- [ ] Coverage ≥80% enforcement flag flipped once the baseline run
+      completes and the team signs off on per-crate targets.
+- [ ] Miri run on pure-Rust crates (trie, crypto, governance, core).
