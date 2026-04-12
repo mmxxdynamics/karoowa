@@ -168,9 +168,12 @@ pub fn build_manifest(height: u64, state_root: Hash, chunks: &[Vec<u8>]) -> Snap
     }
 }
 
+/// Internal storage entry: a manifest plus its compressed chunks.
+type StoredSnapshot = (SnapshotManifest, Vec<Vec<u8>>);
+
 /// An in-memory implementation of `SnapshotStore` for testing.
 pub struct InMemorySnapshotStore {
-    snapshots: std::sync::Mutex<std::collections::HashMap<u64, (SnapshotManifest, Vec<Vec<u8>>)>>,
+    snapshots: std::sync::Mutex<std::collections::HashMap<u64, StoredSnapshot>>,
 }
 
 impl InMemorySnapshotStore {

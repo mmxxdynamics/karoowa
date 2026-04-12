@@ -26,8 +26,10 @@
 pub mod behaviour;
 pub mod config;
 pub mod error;
+pub mod state_sync;
 pub mod swarm;
 
 pub use config::NetworkConfig;
 pub use error::NetworkError;
+pub use state_sync::{SnapshotProvider, SnapshotRequest, SnapshotResponse};
 pub use swarm::{Network, NetworkHandle};

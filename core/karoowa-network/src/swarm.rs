@@ -9,9 +9,10 @@ use libp2p::futures::StreamExt;
 use libp2p::gossipsub::{self, IdentTopic};
 use libp2p::identify;
 use libp2p::kad;
+use libp2p::request_response::{self, OutboundRequestId};
 use libp2p::swarm::SwarmEvent;
 use libp2p::{identity::Keypair, Multiaddr, PeerId, Swarm, SwarmBuilder};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use tokio::sync::{broadcast, mpsc, oneshot};
@@ -20,6 +21,7 @@ use tracing::{debug, info, warn};
 use crate::behaviour::{self, BehaviourEvent, KaroowaBehaviour, TOPIC_BLOCKS, TOPIC_TRANSACTIONS};
 use crate::config::NetworkConfig;
 use crate::error::NetworkError;
+use crate::state_sync::{SnapshotProvider, SnapshotRequest, SnapshotResponse};
 
 /// Commands sent from the handle to the swarm event loop.
 enum Command {
@@ -40,6 +42,15 @@ enum Command {
     },
     ListenAddress {
         reply: oneshot::Sender<Vec<Multiaddr>>,
+    },
+    SendSnapshotRequest {
+        peer: PeerId,
+        request: SnapshotRequest,
+        reply: oneshot::Sender<Result<SnapshotResponse, NetworkError>>,
+    },
+    SetSnapshotProvider {
+        provider: Arc<dyn SnapshotProvider>,
+        reply: oneshot::Sender<()>,
     },
 }
 
@@ -143,6 +154,39 @@ impl NetworkHandle {
             .await
             .map_err(|_| NetworkError::NotRunning)?;
         rx.await.map_err(|_| NetworkError::NotRunning)?
+    }
+
+    /// Send a snapshot request to a specific peer and await the response.
+    pub async fn request_snapshot(
+        &self,
+        peer: PeerId,
+        request: SnapshotRequest,
+    ) -> Result<SnapshotResponse, NetworkError> {
+        let (reply, rx) = oneshot::channel();
+        self.cmd_tx
+            .send(Command::SendSnapshotRequest {
+                peer,
+                request,
+                reply,
+            })
+            .await
+            .map_err(|_| NetworkError::NotRunning)?;
+        rx.await.map_err(|_| NetworkError::NotRunning)?
+    }
+
+    /// Install a snapshot provider that will respond to incoming state-sync
+    /// requests from other peers. Pass `None` to operate as a request-only node.
+    pub async fn set_snapshot_provider(
+        &self,
+        provider: Arc<dyn SnapshotProvider>,
+    ) -> Result<(), NetworkError> {
+        let (reply, rx) = oneshot::channel();
+        self.cmd_tx
+            .send(Command::SetSnapshotProvider { provider, reply })
+            .await
+            .map_err(|_| NetworkError::NotRunning)?;
+        rx.await.map_err(|_| NetworkError::NotRunning)?;
+        Ok(())
     }
 }
 
@@ -249,6 +293,13 @@ async fn event_loop(
     peer_count: Arc<AtomicUsize>,
 ) {
     let mut connected_peers: HashSet<PeerId> = HashSet::new();
+    // Pending snapshot requests we sent: maps libp2p request id → caller's reply channel.
+    let mut pending_requests: HashMap<
+        OutboundRequestId,
+        oneshot::Sender<Result<SnapshotResponse, NetworkError>>,
+    > = HashMap::new();
+    // Optional snapshot provider for serving incoming requests.
+    let mut snapshot_provider: Option<Arc<dyn SnapshotProvider>> = None;
 
     loop {
         tokio::select! {
@@ -281,6 +332,17 @@ async fn event_loop(
                     Some(Command::ListenAddress { reply }) => {
                         let addrs: Vec<Multiaddr> = swarm.listeners().cloned().collect();
                         let _ = reply.send(addrs);
+                    }
+                    Some(Command::SendSnapshotRequest { peer, request, reply }) => {
+                        let req_id = swarm
+                            .behaviour_mut()
+                            .state_sync
+                            .send_request(&peer, request);
+                        pending_requests.insert(req_id, reply);
+                    }
+                    Some(Command::SetSnapshotProvider { provider, reply }) => {
+                        snapshot_provider = Some(provider);
+                        let _ = reply.send(());
                     }
                     None => {
                         debug!("all handles dropped, stopping event loop");
@@ -374,9 +436,85 @@ async fn event_loop(
                         debug!(peer = %peer, "kademlia routing updated");
                     }
 
+                    SwarmEvent::Behaviour(BehaviourEvent::StateSync(event)) => {
+                        match *event {
+                            request_response::Event::Message { message, .. } => {
+                                match message {
+                                    request_response::Message::Request {
+                                        request,
+                                        channel,
+                                        ..
+                                    } => {
+                                        // Compute response from the provider (if any).
+                                        let response = match &snapshot_provider {
+                                            Some(provider) => handle_snapshot_request(
+                                                provider.as_ref(),
+                                                request,
+                                            )
+                                            .await,
+                                            None => SnapshotResponse::Error(
+                                                "no snapshot provider configured".into(),
+                                            ),
+                                        };
+                                        let _ = swarm
+                                            .behaviour_mut()
+                                            .state_sync
+                                            .send_response(channel, response);
+                                    }
+                                    request_response::Message::Response {
+                                        request_id,
+                                        response,
+                                    } => {
+                                        if let Some(reply) =
+                                            pending_requests.remove(&request_id)
+                                        {
+                                            let _ = reply.send(Ok(response));
+                                        }
+                                    }
+                                }
+                            }
+                            request_response::Event::OutboundFailure {
+                                request_id,
+                                error,
+                                ..
+                            } => {
+                                if let Some(reply) = pending_requests.remove(&request_id) {
+                                    let _ = reply.send(Err(NetworkError::Transport(format!(
+                                        "outbound state-sync failure: {error}"
+                                    ))));
+                                }
+                            }
+                            request_response::Event::InboundFailure { error, .. } => {
+                                warn!(error = %error, "inbound state-sync failure");
+                            }
+                            request_response::Event::ResponseSent { .. } => {}
+                        }
+                    }
+
                     _ => {}
                 }
             }
+        }
+    }
+}
+
+/// Handle an incoming snapshot request by querying the local provider.
+async fn handle_snapshot_request(
+    provider: &dyn SnapshotProvider,
+    request: SnapshotRequest,
+) -> SnapshotResponse {
+    match request {
+        SnapshotRequest::ListSnapshots => {
+            let manifests = provider.list_snapshots().await;
+            SnapshotResponse::Manifests(manifests)
+        }
+        SnapshotRequest::GetManifest { height } => {
+            let manifest = provider.get_manifest(height).await;
+            SnapshotResponse::Manifest(manifest)
+        }
+        SnapshotRequest::GetChunk { height, index } => {
+            let chunk = provider.get_chunk(height, index).await;
+            SnapshotResponse::Chunk(chunk)
         }
     }
 }

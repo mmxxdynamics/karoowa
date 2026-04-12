@@ -12,6 +12,7 @@ description = "Karoowa P2P networking — libp2p Gossipsub + Kademlia for block/
 [dependencies]
 karoowa-core = { workspace = true }
 karoowa-crypto = { workspace = true }
+karoowa-storage = { workspace = true }
 
 libp2p = { version = "0.56", features = [
     "dns",
@@ -20,10 +21,13 @@ libp2p = { version = "0.56", features = [
     "kad",
     "macros",
     "noise",
+    "request-response",
     "tcp",
     "tokio",
     "yamux",
 ] }
+async-trait = "0.1"
+futures = "0.3"
 
 bincode = { workspace = true }
 serde = { workspace = true }

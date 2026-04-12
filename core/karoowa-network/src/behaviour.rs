@@ -9,11 +9,14 @@ use libp2p::identify;
 use libp2p::identity::Keypair;
 use libp2p::kad;
 use libp2p::kad::store::MemoryStore;
+use libp2p::request_response;
 use libp2p::swarm::NetworkBehaviour;
 use libp2p::StreamProtocol;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::time::Duration;
+
+use crate::state_sync::{self, StateSyncCodec};
 
 /// Gossipsub topic names.
 pub const TOPIC_BLOCKS: &str = "/karoowa/blocks/1";
@@ -26,6 +29,7 @@ pub struct KaroowaBehaviour {
     pub gossipsub: gossipsub::Behaviour,
     pub kademlia: kad::Behaviour<MemoryStore>,
     pub identify: identify::Behaviour,
+    pub state_sync: request_response::Behaviour<StateSyncCodec>,
 }
 
 /// Events emitted by the composed behaviour.
@@ -34,6 +38,7 @@ pub enum BehaviourEvent {
     Gossipsub(gossipsub::Event),
     Kademlia(kad::Event),
     Identify(Box<identify::Event>),
+    StateSync(Box<state_sync::StateSyncEvent>),
 }
 
 impl From<gossipsub::Event> for BehaviourEvent {
@@ -51,6 +56,12 @@ impl From<kad::Event> for BehaviourEvent {
 impl From<identify::Event> for BehaviourEvent {
     fn from(e: identify::Event) -> Self {
         BehaviourEvent::Identify(Box::new(e))
+    }
+}
+
+impl From<state_sync::StateSyncEvent> for BehaviourEvent {
+    fn from(e: state_sync::StateSyncEvent) -> Self {
+        BehaviourEvent::StateSync(Box::new(e))
     }
 }
 
@@ -116,9 +127,13 @@ pub fn build_behaviour(
         keypair.public(),
     ));
 
+    // -- State sync request-response --
+    let state_sync = state_sync::build_behaviour();
+
     KaroowaBehaviour {
         gossipsub,
         kademlia,
         identify,
+        state_sync,
     }
 }
