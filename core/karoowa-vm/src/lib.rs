@@ -33,6 +33,7 @@ pub mod host;
 pub mod vm;
 
 pub use abi::{encode_call, function_selector, AbiFunction, AbiType, AbiValue, ContractAbi};
+pub use context::ExecutionContext;
 pub use error::VmError;
 pub use executor::{Contract, ContractExecutor};
 pub use host::HostState;

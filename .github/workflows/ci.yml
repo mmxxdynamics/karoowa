@@ -87,6 +87,13 @@ jobs:
         run: cargo llvm-cov --workspace --lcov --output-path lcov.info
       - name: Coverage summary
         run: cargo llvm-cov report --workspace --summary-only
+      - name: Enforce ≥80% lines on audit-critical crates
+        run: |
+          cargo llvm-cov --fail-under-lines 80 \
+            -p karoowa-consensus \
+            -p karoowa-bridge \
+            -p karoowa-vm \
+            --summary-only
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
         with:

@@ -23,3 +23,4 @@ tracing = { workspace = true }
 [dev-dependencies]
 wat = "1"
 proptest = { workspace = true }
+tempfile = "3"

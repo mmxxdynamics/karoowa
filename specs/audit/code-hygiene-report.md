@@ -75,8 +75,11 @@ bytes never panic, tamper/forgery detection. See the individual
 
 - ✅ `cargo llvm-cov` job in CI generates `lcov.info` as a workflow
   artifact and prints a summary table to the job log.
-- ⏳ ≥80% threshold enforcement on `karoowa-consensus`, `karoowa-vm`,
-  `karoowa-bridge` — gate flipped once baselines stabilize.
+- ✅ **≥80% threshold enforced** on `karoowa-consensus`, `karoowa-bridge`,
+  `karoowa-vm` via `cargo llvm-cov --fail-under-lines 80 -p …` in the
+  coverage CI job. Current measured values:
+  `karoowa-consensus ~92%`, `karoowa-bridge ~96%`, `karoowa-vm ~88%`.
+  See `specs/audit/coverage-baseline.md` for the full per-file table.
 
 ## Still Open for rc1
 
