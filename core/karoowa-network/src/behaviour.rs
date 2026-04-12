@@ -16,6 +16,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::time::Duration;
 
+use crate::light_client::{self, LightClientCodec};
 use crate::state_sync::{self, StateSyncCodec};
 
 /// Gossipsub topic names.
@@ -30,6 +31,7 @@ pub struct KaroowaBehaviour {
     pub kademlia: kad::Behaviour<MemoryStore>,
     pub identify: identify::Behaviour,
     pub state_sync: request_response::Behaviour<StateSyncCodec>,
+    pub light_client: request_response::Behaviour<LightClientCodec>,
 }
 
 /// Events emitted by the composed behaviour.
@@ -39,6 +41,7 @@ pub enum BehaviourEvent {
     Kademlia(kad::Event),
     Identify(Box<identify::Event>),
     StateSync(Box<state_sync::StateSyncEvent>),
+    LightClient(Box<light_client::LightClientEvent>),
 }
 
 impl From<gossipsub::Event> for BehaviourEvent {
@@ -62,6 +65,12 @@ impl From<identify::Event> for BehaviourEvent {
 impl From<state_sync::StateSyncEvent> for BehaviourEvent {
     fn from(e: state_sync::StateSyncEvent) -> Self {
         BehaviourEvent::StateSync(Box::new(e))
+    }
+}
+
+impl From<light_client::LightClientEvent> for BehaviourEvent {
+    fn from(e: light_client::LightClientEvent) -> Self {
+        BehaviourEvent::LightClient(Box::new(e))
     }
 }
 
@@ -130,10 +139,14 @@ pub fn build_behaviour(
     // -- State sync request-response --
     let state_sync = state_sync::build_behaviour();
 
+    // -- Light client request-response --
+    let light_client = light_client::build_behaviour();
+
     KaroowaBehaviour {
         gossipsub,
         kademlia,
         identify,
         state_sync,
+        light_client,
     }
 }

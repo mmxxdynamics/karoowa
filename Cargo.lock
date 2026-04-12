@@ -2124,6 +2124,7 @@ dependencies = [
  "karoowa-core",
  "karoowa-crypto",
  "karoowa-storage",
+ "karoowa-trie",
  "libp2p",
  "serde",
  "tempfile",

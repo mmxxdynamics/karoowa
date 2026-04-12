@@ -21,6 +21,7 @@ use tracing::{debug, info, warn};
 use crate::behaviour::{self, BehaviourEvent, KaroowaBehaviour, TOPIC_BLOCKS, TOPIC_TRANSACTIONS};
 use crate::config::NetworkConfig;
 use crate::error::NetworkError;
+use crate::light_client::{LightClientProvider, LightClientRequest, LightClientResponse};
 use crate::state_sync::{SnapshotProvider, SnapshotRequest, SnapshotResponse};
 
 /// Commands sent from the handle to the swarm event loop.
@@ -50,6 +51,15 @@ enum Command {
     },
     SetSnapshotProvider {
         provider: Arc<dyn SnapshotProvider>,
+        reply: oneshot::Sender<()>,
+    },
+    SendLightRequest {
+        peer: PeerId,
+        request: LightClientRequest,
+        reply: oneshot::Sender<Result<LightClientResponse, NetworkError>>,
+    },
+    SetLightProvider {
+        provider: Arc<dyn LightClientProvider>,
         reply: oneshot::Sender<()>,
     },
 }
@@ -188,6 +198,38 @@ impl NetworkHandle {
         rx.await.map_err(|_| NetworkError::NotRunning)?;
         Ok(())
     }
+
+    /// Send a light client request to a specific peer and await the response.
+    pub async fn request_light(
+        &self,
+        peer: PeerId,
+        request: LightClientRequest,
+    ) -> Result<LightClientResponse, NetworkError> {
+        let (reply, rx) = oneshot::channel();
+        self.cmd_tx
+            .send(Command::SendLightRequest {
+                peer,
+                request,
+                reply,
+            })
+            .await
+            .map_err(|_| NetworkError::NotRunning)?;
+        rx.await.map_err(|_| NetworkError::NotRunning)?
+    }
+
+    /// Install a light client provider for serving incoming light client requests.
+    pub async fn set_light_provider(
+        &self,
+        provider: Arc<dyn LightClientProvider>,
+    ) -> Result<(), NetworkError> {
+        let (reply, rx) = oneshot::channel();
+        self.cmd_tx
+            .send(Command::SetLightProvider { provider, reply })
+            .await
+            .map_err(|_| NetworkError::NotRunning)?;
+        rx.await.map_err(|_| NetworkError::NotRunning)?;
+        Ok(())
+    }
 }
 
 /// The network node. Call [`Network::start`] to spawn the event loop and
@@ -298,8 +340,14 @@ async fn event_loop(
         OutboundRequestId,
         oneshot::Sender<Result<SnapshotResponse, NetworkError>>,
     > = HashMap::new();
-    // Optional snapshot provider for serving incoming requests.
+    // Pending light client requests we sent.
+    let mut pending_light_requests: HashMap<
+        OutboundRequestId,
+        oneshot::Sender<Result<LightClientResponse, NetworkError>>,
+    > = HashMap::new();
+    // Optional providers for serving incoming requests.
     let mut snapshot_provider: Option<Arc<dyn SnapshotProvider>> = None;
+    let mut light_provider: Option<Arc<dyn LightClientProvider>> = None;
 
     loop {
         tokio::select! {
@@ -342,6 +390,17 @@ async fn event_loop(
                     }
                     Some(Command::SetSnapshotProvider { provider, reply }) => {
                         snapshot_provider = Some(provider);
+                        let _ = reply.send(());
+                    }
+                    Some(Command::SendLightRequest { peer, request, reply }) => {
+                        let req_id = swarm
+                            .behaviour_mut()
+                            .light_client
+                            .send_request(&peer, request);
+                        pending_light_requests.insert(req_id, reply);
+                    }
+                    Some(Command::SetLightProvider { provider, reply }) => {
+                        light_provider = Some(provider);
                         let _ = reply.send(());
                     }
                     None => {
@@ -491,6 +550,62 @@ async fn event_loop(
                         }
                     }
 
+                    SwarmEvent::Behaviour(BehaviourEvent::LightClient(event)) => {
+                        match *event {
+                            request_response::Event::Message { message, .. } => {
+                                match message {
+                                    request_response::Message::Request {
+                                        request,
+                                        channel,
+                                        ..
+                                    } => {
+                                        let response = match &light_provider {
+                                            Some(provider) => handle_light_request(
+                                                provider.as_ref(),
+                                                request,
+                                            )
+                                            .await,
+                                            None => LightClientResponse::Error(
+                                                "no light client provider configured".into(),
+                                            ),
+                                        };
+                                        let _ = swarm
+                                            .behaviour_mut()
+                                            .light_client
+                                            .send_response(channel, response);
+                                    }
+                                    request_response::Message::Response {
+                                        request_id,
+                                        response,
+                                    } => {
+                                        if let Some(reply) =
+                                            pending_light_requests.remove(&request_id)
+                                        {
+                                            let _ = reply.send(Ok(response));
+                                        }
+                                    }
+                                }
+                            }
+                            request_response::Event::OutboundFailure {
+                                request_id,
+                                error,
+                                ..
+                            } => {
+                                if let Some(reply) =
+                                    pending_light_requests.remove(&request_id)
+                                {
+                                    let _ = reply.send(Err(NetworkError::Transport(format!(
+                                        "outbound light client failure: {error}"
+                                    ))));
+                                }
+                            }
+                            request_response::Event::InboundFailure { error, .. } => {
+                                warn!(error = %error, "inbound light client failure");
+                            }
+                            request_response::Event::ResponseSent { .. } => {}
+                        }
+                    }
+
                     _ => {}
                 }
             }
@@ -515,6 +630,27 @@ async fn handle_snapshot_request(
         SnapshotRequest::GetChunk { height, index } => {
             let chunk = provider.get_chunk(height, index).await;
             SnapshotResponse::Chunk(chunk)
+        }
+    }
+}
+
+/// Handle an incoming light client request by querying the local provider.
+async fn handle_light_request(
+    provider: &dyn LightClientProvider,
+    request: LightClientRequest,
+) -> LightClientResponse {
+    match request {
+        LightClientRequest::GetHeader { height } => {
+            let header = provider.get_header(height).await;
+            LightClientResponse::Header(header)
+        }
+        LightClientRequest::GetHeaderRange { from, to } => {
+            let headers = provider.get_header_range(from, to).await;
+            LightClientResponse::Headers(headers)
+        }
+        LightClientRequest::GetStateProof { key, height } => {
+            let proof = provider.get_state_proof(&key, height).await;
+            LightClientResponse::StateProof(proof)
         }
     }
 }

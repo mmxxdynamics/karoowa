@@ -26,10 +26,12 @@
 pub mod behaviour;
 pub mod config;
 pub mod error;
+pub mod light_client;
 pub mod state_sync;
 pub mod swarm;
 
 pub use config::NetworkConfig;
 pub use error::NetworkError;
+pub use light_client::{LightClientProvider, LightClientRequest, LightClientResponse};
 pub use state_sync::{SnapshotProvider, SnapshotRequest, SnapshotResponse};
 pub use swarm::{Network, NetworkHandle};
