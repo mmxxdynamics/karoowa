@@ -3,10 +3,10 @@
 use clap::Args;
 use karoowa_api::server::{start_server, ServerConfig};
 use karoowa_consensus::{BlockProducer, PoAConfig, PoAEngine, ProducerConfig};
-use karoowa_core::BlockHeader;
-use karoowa_crypto::{Hash, Keypair};
+use karoowa_core::{Account, BlockHeader};
+use karoowa_crypto::{Address, Hash, Keypair};
 use karoowa_network::{Network, NetworkConfig};
-use karoowa_storage::{BlockStore, RocksStorage};
+use karoowa_storage::{BlockStore, RocksStorage, StateStore};
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -50,6 +50,16 @@ pub struct NodeArgs {
     /// Join a named network (e.g. "public-devnet")
     #[arg(long)]
     join: Option<String>,
+
+    /// Seed a starting balance on a fresh chain. Format: `<address>=<amount>`.
+    /// Repeatable. Applied only when no existing chain data is present — does
+    /// nothing on a resumed node. The address is 0x-prefixed hex, the amount
+    /// is a raw u64 in the chain's smallest unit.
+    ///
+    /// Example:
+    ///   --genesis-allocation 0xdeadbeef...=1000000000000000000
+    #[arg(long = "genesis-allocation", value_name = "ADDR=AMOUNT")]
+    genesis_allocations: Vec<String>,
 }
 
 pub async fn run(args: NodeArgs) -> Result<(), Box<dyn std::error::Error>> {
@@ -124,6 +134,7 @@ pub async fn run(args: NodeArgs) -> Result<(), Box<dyn std::error::Error>> {
                 }
                 None => {
                     info!("no existing chain, starting from genesis");
+                    apply_genesis_allocations(&storage, &args.genesis_allocations)?;
                     BlockHeader {
                         parent_hash: Hash::ZERO,
                         state_root: Hash::ZERO,
@@ -173,5 +184,41 @@ pub async fn run(args: NodeArgs) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
+    Ok(())
+}
+
+/// Apply `--genesis-allocation ADDR=AMOUNT` entries to a fresh state.
+/// Called exactly once at node startup when there is no existing chain data.
+fn apply_genesis_allocations(
+    storage: &RocksStorage,
+    allocations: &[String],
+) -> Result<(), Box<dyn std::error::Error>> {
+    if allocations.is_empty() {
+        return Ok(());
+    }
+    for entry in allocations {
+        let (addr_str, amount_str) = entry
+            .split_once('=')
+            .ok_or_else(|| format!("invalid --genesis-allocation (expected ADDR=AMOUNT): {entry}"))?;
+        let address: Address = addr_str
+            .parse()
+            .map_err(|e| format!("invalid address in --genesis-allocation {entry}: {e:?}"))?;
+        let amount: u64 = amount_str
+            .parse()
+            .map_err(|e| format!("invalid amount in --genesis-allocation {entry}: {e}"))?;
+
+        let account = Account {
+            nonce: 0,
+            balance: amount,
+            code_hash: Hash::ZERO,
+            storage_root: Hash::ZERO,
+        };
+        storage.put_account(&address, &account)?;
+        info!(
+            address = %address,
+            amount = amount,
+            "genesis allocation applied"
+        );
+    }
     Ok(())
 }
