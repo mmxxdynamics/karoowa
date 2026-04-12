@@ -19,6 +19,7 @@ members = [
     "enterprise/karoowa-audit-log",
     "enterprise/karoowa-rbac",
     "enterprise/karoowa-hsm",
+    "enterprise/karoowa-ha",
 ]
 
 [workspace.package]
@@ -51,6 +52,7 @@ karoowa-license = { path = "enterprise/karoowa-license", version = "0.0.1" }
 karoowa-audit-log = { path = "enterprise/karoowa-audit-log", version = "0.0.1" }
 karoowa-rbac = { path = "enterprise/karoowa-rbac", version = "0.0.1" }
 karoowa-hsm = { path = "enterprise/karoowa-hsm", version = "0.0.1" }
+karoowa-ha = { path = "enterprise/karoowa-ha", version = "0.0.1" }
 
 # Async runtime
 tokio = { version = "1", features = ["full"] }

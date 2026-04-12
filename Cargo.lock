@@ -2143,6 +2143,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "karoowa-ha"
+version = "0.0.1"
+dependencies = [
+ "karoowa-audit-log",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tracing",
+]
+
+[[package]]
 name = "karoowa-hsm"
 version = "0.0.1"
 dependencies = [

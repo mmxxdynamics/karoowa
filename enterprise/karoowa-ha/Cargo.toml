@@ -1,0 +1,18 @@
+[package]
+name = "karoowa-ha"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+license-file = "../../LICENSE-ENTERPRISE.md"
+description = "Karoowa Enterprise — high-availability node clustering via lease-based leader election"
+
+[dependencies]
+karoowa-audit-log = { workspace = true }
+
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
