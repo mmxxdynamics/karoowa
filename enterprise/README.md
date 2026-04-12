@@ -4,7 +4,16 @@ This directory holds the **proprietary enterprise layer** of Karoowa. Code under
 
 ## Status
 
-Empty in M1. The first enterprise modules are scheduled for **M4 (Enterprise Governance bundle)** — see `specs/development/dev_plan.md` and parent PRD REQ-011.
+Phase 6.3 in progress. Shipped crates:
+
+| Crate | Purpose | Status |
+|---|---|---|
+| `karoowa-license` | Signed license file parser; replaces `OssLicenseGate` at startup | ✅ shipped |
+| `karoowa-audit-log` | Hash-chained append-only audit log (SOC 2 CC7.2) | ✅ shipped |
+| `karoowa-rbac` | Role-based access control for node ops | 🚧 next |
+| `karoowa-hsm` | HSM integration (SoftHsm first; AWS CloudHSM/YubiHSM later) | ⏳ |
+| `karoowa-ha` | Active/standby node clustering | ⏳ |
+| `karoowa-marketplace` | Curated agent registry with attestation | ⏳ |
 
 ## What lives here (eventually)
 

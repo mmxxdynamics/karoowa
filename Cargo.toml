@@ -15,6 +15,8 @@ members = [
     "core/karoowa-bridge",
     "core/karoowa-governance",
     "core/karoowa",
+    "enterprise/karoowa-license",
+    "enterprise/karoowa-audit-log",
 ]
 
 [workspace.package]
@@ -41,6 +43,10 @@ karoowa-trie = { path = "core/karoowa-trie", version = "0.0.1" }
 karoowa-light = { path = "core/karoowa-light", version = "0.0.1" }
 karoowa-bridge = { path = "core/karoowa-bridge", version = "0.0.1" }
 karoowa-governance = { path = "core/karoowa-governance", version = "0.0.1" }
+
+# Enterprise crates (BSL-licensed; opt-in)
+karoowa-license = { path = "enterprise/karoowa-license", version = "0.0.1" }
+karoowa-audit-log = { path = "enterprise/karoowa-audit-log", version = "0.0.1" }
 
 # Async runtime
 tokio = { version = "1", features = ["full"] }

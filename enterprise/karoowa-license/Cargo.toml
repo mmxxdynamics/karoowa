@@ -1,0 +1,20 @@
+[package]
+name = "karoowa-license"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+# BSL 1.1 — proprietary until 4-year convert. See LICENSE-ENTERPRISE.md.
+license-file = "../../LICENSE-ENTERPRISE.md"
+description = "Karoowa Enterprise — signed license file parser and LicenseGate impl"
+
+[dependencies]
+karoowa-core = { workspace = true }
+karoowa-crypto = { workspace = true }
+
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }

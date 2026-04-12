@@ -28,7 +28,16 @@ fn arb_packet() -> impl Strategy<Value = BridgePacket> {
         any::<u64>(),
     )
         .prop_map(
-            |(source_chain, dest_chain, sequence, sender, recipient, amount, denom, timeout_height)| {
+            |(
+                source_chain,
+                dest_chain,
+                sequence,
+                sender,
+                recipient,
+                amount,
+                denom,
+                timeout_height,
+            )| {
                 BridgePacket {
                     source_chain,
                     dest_chain,

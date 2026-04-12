@@ -2062,6 +2062,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "karoowa-audit-log"
+version = "0.0.1"
+dependencies = [
+ "karoowa-crypto",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tracing",
+]
+
+[[package]]
 name = "karoowa-bridge"
 version = "0.0.1"
 dependencies = [
@@ -2126,6 +2138,18 @@ dependencies = [
  "karoowa-core",
  "karoowa-crypto",
  "serde",
+ "thiserror 1.0.69",
+ "tracing",
+]
+
+[[package]]
+name = "karoowa-license"
+version = "0.0.1"
+dependencies = [
+ "karoowa-core",
+ "karoowa-crypto",
+ "serde",
+ "serde_json",
  "thiserror 1.0.69",
  "tracing",
 ]
