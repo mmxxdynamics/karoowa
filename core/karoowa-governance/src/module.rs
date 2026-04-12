@@ -331,6 +331,52 @@ impl GovernanceModule {
     pub fn tally(&self, id: u64) -> Option<&VoteTally> {
         self.tallies.get(&id)
     }
+
+    /// Advance governance to `current_height`. Auto-closes any voting
+    /// periods that have ended and auto-executes any timelocks that have
+    /// expired, returning the list of effects consensus must apply this
+    /// block.
+    ///
+    /// Safe to call every block. Iteration order is deterministic
+    /// (proposal id ascending) so the output is reproducible across nodes.
+    pub fn tick(&mut self, current_height: u64) -> Vec<(u64, ExecutionEffect)> {
+        // Collect ids first to avoid borrowing self twice.
+        let ids: Vec<u64> = self.proposals.keys().copied().collect();
+
+        // 1. Close voting for proposals whose period has ended.
+        for id in &ids {
+            let should_close = self
+                .proposals
+                .get(id)
+                .map(|p| {
+                    p.status == ProposalStatus::Voting
+                        && p.voting_end.is_some_and(|end| current_height >= end)
+                })
+                .unwrap_or(false);
+            if should_close {
+                let _ = self.close_voting(*id, current_height);
+            }
+        }
+
+        // 2. Execute proposals whose timelock has expired.
+        let mut effects = Vec::new();
+        for id in &ids {
+            let should_execute = self
+                .proposals
+                .get(id)
+                .map(|p| {
+                    p.status == ProposalStatus::Timelock
+                        && p.timelock_end.is_some_and(|end| current_height >= end)
+                })
+                .unwrap_or(false);
+            if should_execute {
+                if let Ok(effect) = self.execute_proposal(*id, current_height) {
+                    effects.push((*id, effect));
+                }
+            }
+        }
+        effects
+    }
 }
 
 #[cfg(test)]
@@ -542,5 +588,86 @@ mod tests {
             )
             .unwrap_err();
         assert!(matches!(err, GovernanceError::InvalidParameter(_)));
+    }
+
+    #[test]
+    fn tick_auto_closes_and_auto_executes() {
+        let mut g = gov();
+        let id = g
+            .submit(
+                addr(1),
+                ProposalKind::ParameterChange {
+                    name: "block_time_ms".into(),
+                    new_value: 3000,
+                },
+                100,
+                1,
+            )
+            .unwrap();
+        g.set_eligible_weight(id, 9).unwrap();
+        g.cast_vote(id, addr(2), VoteKind::Yes, 6, 2).unwrap();
+
+        // Tick during voting — no effect.
+        assert!(g.tick(5).is_empty());
+        assert_eq!(g.get(id).unwrap().status, ProposalStatus::Voting);
+
+        // Tick after voting_end — closes to Timelock, no effects yet.
+        assert!(g.tick(12).is_empty());
+        assert_eq!(g.get(id).unwrap().status, ProposalStatus::Timelock);
+
+        // Tick after timelock_end — executes and emits the param-change effect.
+        let effects = g.tick(17);
+        assert_eq!(effects.len(), 1);
+        assert_eq!(
+            effects[0].1,
+            ExecutionEffect::ParameterChange {
+                name: "block_time_ms".into(),
+                new_value: 3000,
+            }
+        );
+        assert_eq!(g.get(id).unwrap().status, ProposalStatus::Executed);
+        assert_eq!(g.params.current_value("block_time_ms"), Some(3000));
+
+        // Idempotent — another tick does nothing.
+        assert!(g.tick(100).is_empty());
+    }
+
+    #[test]
+    fn tick_handles_multiple_proposals_deterministically() {
+        let mut g = gov();
+        let id1 = g
+            .submit(
+                addr(1),
+                ProposalKind::ParameterChange {
+                    name: "block_time_ms".into(),
+                    new_value: 3000,
+                },
+                100,
+                1,
+            )
+            .unwrap();
+        let id2 = g
+            .submit(
+                addr(2),
+                ProposalKind::ParameterChange {
+                    name: "min_gas_price".into(),
+                    new_value: 5,
+                },
+                100,
+                1,
+            )
+            .unwrap();
+        g.set_eligible_weight(id1, 9).unwrap();
+        g.set_eligible_weight(id2, 9).unwrap();
+        g.cast_vote(id1, addr(3), VoteKind::Yes, 6, 2).unwrap();
+        g.cast_vote(id2, addr(3), VoteKind::Yes, 6, 2).unwrap();
+
+        // Close + execute in the same tick.
+        g.tick(12);
+        let effects = g.tick(17);
+        assert_eq!(effects.len(), 2);
+        // Deterministic order: proposal id ascending.
+        assert_eq!(effects[0].0, id1);
+        assert_eq!(effects[1].0, id2);
     }
 }
