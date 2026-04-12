@@ -12,6 +12,7 @@
 
 pub mod block;
 pub mod config;
+pub mod eip1559;
 pub mod error;
 pub mod license;
 pub mod receipt;
@@ -22,6 +23,7 @@ pub mod transaction;
 // Re-exports for convenience.
 pub use block::{Block, BlockBuilder, BlockHeader};
 pub use config::{ChainConfig, GenesisConfig, GenesisValidationError};
+pub use eip1559::{compute_base_fee, AccessList, Eip1559Transaction, TransactionEnvelope};
 pub use error::{CoreError, CryptoError};
 pub use license::{Edition, LicenseGate, LicenseInfo, OssLicenseGate};
 pub use receipt::{Log, Receipt, TxStatus};
