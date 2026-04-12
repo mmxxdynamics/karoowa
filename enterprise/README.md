@@ -11,7 +11,7 @@ Phase 6.3 in progress. Shipped crates:
 | `karoowa-license` | Signed license file parser; replaces `OssLicenseGate` at startup | ✅ shipped |
 | `karoowa-audit-log` | Hash-chained append-only audit log (SOC 2 CC7.2) | ✅ shipped |
 | `karoowa-rbac` | Role-based access control for node ops | ✅ shipped |
-| `karoowa-hsm` | HSM integration (SoftHsm first; AWS CloudHSM/YubiHSM later) | ⏳ |
+| `karoowa-hsm` | HSM trait + SoftHsm reference backend (AWS/Yubi deferred to v1.1) | ✅ shipped |
 | `karoowa-ha` | Active/standby node clustering | ⏳ |
 | `karoowa-marketplace` | Curated agent registry with attestation | ⏳ |
 
