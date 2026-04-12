@@ -2191,6 +2191,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "karoowa-marketplace"
+version = "0.0.1"
+dependencies = [
+ "karoowa-crypto",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tracing",
+]
+
+[[package]]
 name = "karoowa-network"
 version = "0.0.1"
 dependencies = [
