@@ -2062,6 +2062,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "karoowa-bridge"
+version = "0.0.1"
+dependencies = [
+ "bincode",
+ "karoowa-core",
+ "karoowa-crypto",
+ "karoowa-light",
+ "karoowa-trie",
+ "serde",
+ "thiserror 1.0.69",
+ "tracing",
+]
+
+[[package]]
 name = "karoowa-consensus"
 version = "0.0.1"
 dependencies = [

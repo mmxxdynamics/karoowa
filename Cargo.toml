@@ -12,6 +12,7 @@ members = [
     "core/karoowa-vm",
     "core/karoowa-trie",
     "core/karoowa-light",
+    "core/karoowa-bridge",
     "core/karoowa",
 ]
 
@@ -37,6 +38,7 @@ karoowa-sdk = { path = "core/karoowa-sdk", version = "0.0.1" }
 karoowa-agents = { path = "core/karoowa-agents", version = "0.0.1" }
 karoowa-trie = { path = "core/karoowa-trie", version = "0.0.1" }
 karoowa-light = { path = "core/karoowa-light", version = "0.0.1" }
+karoowa-bridge = { path = "core/karoowa-bridge", version = "0.0.1" }
 
 # Async runtime
 tokio = { version = "1", features = ["full"] }
