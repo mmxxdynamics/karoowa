@@ -13,6 +13,7 @@ description = "Karoowa storage layer — RocksDB-backed BlockStore, StateStore, 
 karoowa-core = { workspace = true }
 karoowa-crypto = { workspace = true }
 rocksdb = "0.22"
+zstd = "0.13"
 bincode = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }

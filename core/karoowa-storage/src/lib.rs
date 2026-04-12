@@ -7,8 +7,13 @@
 
 pub mod error;
 pub mod rocks;
+pub mod snapshot;
 pub mod traits;
 
 pub use error::StorageError;
 pub use rocks::RocksStorage;
+pub use snapshot::{
+    build_manifest, chunk_and_compress, decompress_chunk, InMemorySnapshotStore, SnapshotChunk,
+    SnapshotEntry, SnapshotManifest, SnapshotStore, TARGET_CHUNK_SIZE,
+};
 pub use traits::{BlockStore, ReceiptStore, StateStore};
