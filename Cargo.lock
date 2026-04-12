@@ -2223,6 +2223,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "karoowa-node-enterprise"
+version = "0.0.1"
+dependencies = [
+ "karoowa-audit-log",
+ "karoowa-core",
+ "karoowa-crypto",
+ "karoowa-ha",
+ "karoowa-hsm",
+ "karoowa-license",
+ "karoowa-marketplace",
+ "karoowa-rbac",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tracing",
+]
+
+[[package]]
 name = "karoowa-rbac"
 version = "0.0.1"
 dependencies = [

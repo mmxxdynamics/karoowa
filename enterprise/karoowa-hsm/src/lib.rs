@@ -101,7 +101,7 @@ pub trait HsmProvider: Send + Sync {
 }
 
 /// Convenience wrapper: sign + emit an audit event.
-pub fn sign_audited<H: HsmProvider>(
+pub fn sign_audited<H: HsmProvider + ?Sized>(
     hsm: &H,
     id: &KeyId,
     message: &[u8],

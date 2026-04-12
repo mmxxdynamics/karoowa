@@ -14,6 +14,7 @@ Phase 6.3 in progress. Shipped crates:
 | `karoowa-hsm` | HSM trait + SoftHsm reference backend (AWS/Yubi deferred to v1.1) | ✅ shipped |
 | `karoowa-ha` | Active/standby node clustering (InMemoryLease; SQL/etcd backends later) | ✅ shipped |
 | `karoowa-marketplace` | Curated agent registry with ed25519 vendor attestation | ✅ shipped |
+| `karoowa-node-enterprise` | Umbrella wrapper composing all six into one `EnterpriseContext` | ✅ shipped |
 
 ## What lives here (eventually)
 

@@ -21,6 +21,7 @@ members = [
     "enterprise/karoowa-hsm",
     "enterprise/karoowa-ha",
     "enterprise/karoowa-marketplace",
+    "enterprise/karoowa-node",
 ]
 
 [workspace.package]

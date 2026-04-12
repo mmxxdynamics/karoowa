@@ -1,0 +1,29 @@
+[package]
+name = "karoowa-node-enterprise"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+license-file = "../../LICENSE-ENTERPRISE.md"
+description = "Karoowa Enterprise — umbrella wrapper that composes the six enterprise crates into one EnterpriseContext"
+
+[dependencies]
+karoowa-core = { workspace = true }
+karoowa-crypto = { workspace = true }
+
+karoowa-license = { workspace = true }
+karoowa-audit-log = { workspace = true }
+karoowa-rbac = { workspace = true }
+karoowa-hsm = { workspace = true }
+karoowa-ha = { workspace = true }
+karoowa-marketplace = { workspace = true }
+
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"
