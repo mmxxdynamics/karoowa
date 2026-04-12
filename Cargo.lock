@@ -2070,6 +2070,7 @@ dependencies = [
  "karoowa-crypto",
  "karoowa-light",
  "karoowa-trie",
+ "proptest",
  "serde",
  "thiserror 1.0.69",
  "tracing",
