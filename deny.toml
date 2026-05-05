@@ -1,16 +1,20 @@
 # cargo-deny configuration for Karoowa.
 # See: https://embarkstudios.github.io/cargo-deny/
 #
-# Runs in CI (T1.0.6) to catch bad licenses and known-vulnerable dependencies.
+# Runs in CI on every PR (`.github/workflows/ci.yml :: deny`).
+
+[graph]
+all-features = true
 
 [advisories]
-vulnerability = "deny"
-unmaintained = "warn"
-yanked = "warn"
-notice = "warn"
+# RUSTSEC advisories — fail the build by default.
+yanked = "deny"
+ignore = [
+    # Format: "RUSTSEC-XXXX-XXXX",  # justification + revisit date
+]
 
 [licenses]
-unlicensed = "deny"
+# SPDX identifiers — full list at https://spdx.org/licenses/
 allow = [
     "Apache-2.0",
     "Apache-2.0 WITH LLVM-exception",
@@ -24,21 +28,38 @@ allow = [
     "Zlib",
     "BSL-1.0",
     "CC0-1.0",
+    "OpenSSL",
 ]
-deny = [
-    "GPL-2.0",
-    "GPL-3.0",
-    "AGPL-1.0",
-    "AGPL-3.0",
+# Karoowa Enterprise crates use a `LicenseRef-` SPDX expression. Allow it explicitly.
+exceptions = [
+    { allow = ["LicenseRef-Karoowa-Enterprise"], crate = "karoowa-license" },
+    { allow = ["LicenseRef-Karoowa-Enterprise"], crate = "karoowa-audit-log" },
+    { allow = ["LicenseRef-Karoowa-Enterprise"], crate = "karoowa-rbac" },
+    { allow = ["LicenseRef-Karoowa-Enterprise"], crate = "karoowa-hsm" },
+    { allow = ["LicenseRef-Karoowa-Enterprise"], crate = "karoowa-ha" },
+    { allow = ["LicenseRef-Karoowa-Enterprise"], crate = "karoowa-marketplace" },
+    { allow = ["LicenseRef-Karoowa-Enterprise"], crate = "karoowa-node-enterprise" },
 ]
-copyleft = "warn"
+confidence-threshold = 0.8
 
 [bans]
+# `multiple-versions = warn` because chasing every duplicate transitive dep
+# in a libp2p / RocksDB / tokio graph is its own full-time job. Tighten to
+# "deny" once the graph stabilises.
 multiple-versions = "warn"
 wildcards = "deny"
+highlight = "all"
+deny = [
+    # OpenSSL is forbidden — we standardise on rustls.
+    { name = "openssl" },
+    { name = "openssl-sys" },
+    { name = "native-tls" },
+]
+skip = []
+skip-tree = []
 
 [sources]
 unknown-registry = "deny"
-unknown-git = "warn"
+unknown-git = "deny"
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 allow-git = []

@@ -1998,7 +1998,7 @@ dependencies = [
 
 [[package]]
 name = "karoowa"
-version = "0.0.1"
+version = "0.6.0-dev"
 dependencies = [
  "clap",
  "hex",
@@ -2021,7 +2021,7 @@ dependencies = [
 
 [[package]]
 name = "karoowa-agents"
-version = "0.0.1"
+version = "0.6.0-dev"
 dependencies = [
  "async-trait",
  "karoowa-core",
@@ -2038,7 +2038,7 @@ dependencies = [
 
 [[package]]
 name = "karoowa-api"
-version = "0.0.1"
+version = "0.6.0-dev"
 dependencies = [
  "axum",
  "bincode",
@@ -2063,7 +2063,7 @@ dependencies = [
 
 [[package]]
 name = "karoowa-audit-log"
-version = "0.0.1"
+version = "0.6.0-dev"
 dependencies = [
  "karoowa-crypto",
  "serde",
@@ -2075,7 +2075,7 @@ dependencies = [
 
 [[package]]
 name = "karoowa-bridge"
-version = "0.0.1"
+version = "0.6.0-dev"
 dependencies = [
  "bincode",
  "karoowa-core",
@@ -2090,7 +2090,7 @@ dependencies = [
 
 [[package]]
 name = "karoowa-consensus"
-version = "0.0.1"
+version = "0.6.0-dev"
 dependencies = [
  "async-trait",
  "karoowa-core",
@@ -2105,7 +2105,7 @@ dependencies = [
 
 [[package]]
 name = "karoowa-core"
-version = "0.0.1"
+version = "0.6.0-dev"
 dependencies = [
  "bincode",
  "karoowa-crypto",
@@ -2117,7 +2117,7 @@ dependencies = [
 
 [[package]]
 name = "karoowa-crypto"
-version = "0.0.1"
+version = "0.6.0-dev"
 dependencies = [
  "blake3",
  "ed25519-dalek",
@@ -2132,7 +2132,7 @@ dependencies = [
 
 [[package]]
 name = "karoowa-governance"
-version = "0.0.1"
+version = "0.6.0-dev"
 dependencies = [
  "bincode",
  "karoowa-core",
@@ -2144,7 +2144,7 @@ dependencies = [
 
 [[package]]
 name = "karoowa-ha"
-version = "0.0.1"
+version = "0.6.0-dev"
 dependencies = [
  "karoowa-audit-log",
  "serde",
@@ -2155,7 +2155,7 @@ dependencies = [
 
 [[package]]
 name = "karoowa-hsm"
-version = "0.0.1"
+version = "0.6.0-dev"
 dependencies = [
  "karoowa-audit-log",
  "karoowa-crypto",
@@ -2168,7 +2168,7 @@ dependencies = [
 
 [[package]]
 name = "karoowa-license"
-version = "0.0.1"
+version = "0.6.0-dev"
 dependencies = [
  "karoowa-core",
  "karoowa-crypto",
@@ -2180,7 +2180,7 @@ dependencies = [
 
 [[package]]
 name = "karoowa-light"
-version = "0.0.1"
+version = "0.6.0-dev"
 dependencies = [
  "karoowa-core",
  "karoowa-crypto",
@@ -2192,7 +2192,7 @@ dependencies = [
 
 [[package]]
 name = "karoowa-marketplace"
-version = "0.0.1"
+version = "0.6.0-dev"
 dependencies = [
  "karoowa-crypto",
  "serde",
@@ -2203,7 +2203,7 @@ dependencies = [
 
 [[package]]
 name = "karoowa-network"
-version = "0.0.1"
+version = "0.6.0-dev"
 dependencies = [
  "async-trait",
  "bincode",
@@ -2224,7 +2224,7 @@ dependencies = [
 
 [[package]]
 name = "karoowa-node-enterprise"
-version = "0.0.1"
+version = "0.6.0-dev"
 dependencies = [
  "karoowa-audit-log",
  "karoowa-core",
@@ -2243,7 +2243,7 @@ dependencies = [
 
 [[package]]
 name = "karoowa-rbac"
-version = "0.0.1"
+version = "0.6.0-dev"
 dependencies = [
  "karoowa-audit-log",
  "serde",
@@ -2254,7 +2254,7 @@ dependencies = [
 
 [[package]]
 name = "karoowa-sdk"
-version = "0.0.1"
+version = "0.6.0-dev"
 dependencies = [
  "bincode",
  "hex",
@@ -2274,7 +2274,7 @@ dependencies = [
 
 [[package]]
 name = "karoowa-storage"
-version = "0.0.1"
+version = "0.6.0-dev"
 dependencies = [
  "bincode",
  "karoowa-core",
@@ -2290,7 +2290,7 @@ dependencies = [
 
 [[package]]
 name = "karoowa-trie"
-version = "0.0.1"
+version = "0.6.0-dev"
 dependencies = [
  "bincode",
  "karoowa-crypto",
@@ -2301,7 +2301,7 @@ dependencies = [
 
 [[package]]
 name = "karoowa-vm"
-version = "0.0.1"
+version = "0.6.0-dev"
 dependencies = [
  "karoowa-core",
  "karoowa-crypto",
