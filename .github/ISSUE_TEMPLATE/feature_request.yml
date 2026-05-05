@@ -1,0 +1,50 @@
+name: Feature request
+description: Propose a new feature or behaviour change.
+title: "[feat] "
+labels: ["C-feature", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to propose a feature.
+
+        Karoowa is opinionated — not every feature is in scope. Read [`specs/strategy/02_technical_strategy.md`](https://github.com/mmxxdynamics/karoowa/blob/main/specs/strategy/02_technical_strategy.md) before filing if you are unsure.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem are you trying to solve? Who has it?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How would Karoowa solve it? Public API sketch is welcome.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches you weighed and why you discarded them.
+  - type: dropdown
+    id: layer
+    attributes:
+      label: Layer
+      description: Which part of the stack is impacted?
+      options:
+        - core/ (open-source)
+        - enterprise/ (proprietary)
+        - SDK
+        - CLI
+        - Docker / packaging
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional context
+      description: Use cases, links to upstream RFCs, related issues.

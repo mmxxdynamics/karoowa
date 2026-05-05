@@ -1,0 +1,46 @@
+# CODEOWNERS — review routing for Karoowa.
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+#
+# Required: create a `maintainers` team under the `mmxxdynamics` org and add
+# the relevant people to it. Until the team exists, replace `@mmxxdynamics/maintainers`
+# below with individual GitHub handles.
+
+# Default ownership for anything not matched by a more specific rule.
+* @mmxxdynamics/maintainers
+
+# Repo / build infrastructure
+/.github/                       @mmxxdynamics/maintainers
+/.github/workflows/             @mmxxdynamics/maintainers
+/Cargo.toml                     @mmxxdynamics/maintainers
+/Cargo.lock                     @mmxxdynamics/maintainers
+/deny.toml                      @mmxxdynamics/maintainers
+/rust-toolchain.toml            @mmxxdynamics/maintainers
+/rustfmt.toml                   @mmxxdynamics/maintainers
+/clippy.toml                    @mmxxdynamics/maintainers
+/docker/                        @mmxxdynamics/maintainers
+/scripts/                       @mmxxdynamics/maintainers
+
+# Public-facing docs
+/README.md                      @mmxxdynamics/maintainers
+/CHANGELOG.md                   @mmxxdynamics/maintainers
+/CONTRIBUTING.md                @mmxxdynamics/maintainers
+/SECURITY.md                    @mmxxdynamics/maintainers
+/RELEASE.md                     @mmxxdynamics/maintainers
+/CODE_OF_CONDUCT.md             @mmxxdynamics/maintainers
+/LICENSE                        @mmxxdynamics/maintainers
+/LICENSE-ENTERPRISE.md          @mmxxdynamics/maintainers
+/docs/                          @mmxxdynamics/maintainers
+
+# Audit-critical core crates require explicit review
+/core/karoowa-consensus/        @mmxxdynamics/maintainers
+/core/karoowa-bridge/           @mmxxdynamics/maintainers
+/core/karoowa-vm/               @mmxxdynamics/maintainers
+/core/karoowa-trie/             @mmxxdynamics/maintainers
+/core/karoowa-crypto/           @mmxxdynamics/maintainers
+
+# Enterprise (proprietary) — restrict review
+/enterprise/                    @mmxxdynamics/maintainers
+
+# Specs / decision log — strategic, route to maintainers
+/specs/strategy/                @mmxxdynamics/maintainers
+/specs/development/             @mmxxdynamics/maintainers

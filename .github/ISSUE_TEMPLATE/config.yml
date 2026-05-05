@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/mmxxdynamics/karoowa/security/advisories/new
+    about: Report a suspected vulnerability privately. Do NOT open a public issue.
+  - name: Question / discussion
+    url: https://github.com/mmxxdynamics/karoowa/discussions
+    about: Ask a usage question or start a design discussion. Issues are for actionable bugs and features.
+  - name: Documentation
+    url: https://docs.karoowa.io
+    about: Operator guide, developer guide, tokenomics, decision log.

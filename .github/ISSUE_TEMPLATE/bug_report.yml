@@ -1,0 +1,83 @@
+name: Bug report
+description: Report something that is broken or behaves unexpectedly.
+title: "[bug] "
+labels: ["C-bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report.
+
+        **Suspected vulnerability?** Stop here and read [SECURITY.md](https://github.com/mmxxdynamics/karoowa/blob/main/SECURITY.md). Do not file public issues for security problems.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One paragraph describing the bug.
+      placeholder: "When I run `karoowa node --consensus poa`, the node panics on startup with…"
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Exact commands and inputs.
+      placeholder: |
+        1. `karoowa wallet new --output ./val.key`
+        2. `karoowa node --validator-key ./val.key --consensus poa`
+        3. Observe panic at line …
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+      description: What you thought should happen.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      description: What actually happened. Paste the relevant error message or stack trace.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Karoowa version
+      description: Output of `karoowa --version`, or the commit hash for source builds.
+      placeholder: "0.5.0 (3c21d0a)"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Linux (x86_64)
+        - Linux (aarch64)
+        - macOS (x86_64)
+        - macOS (aarch64)
+        - Windows (x86_64)
+        - Other (specify in additional context)
+    validations:
+      required: true
+  - type: input
+    id: rust
+    attributes:
+      label: Rust toolchain
+      description: Output of `rustc --version`.
+      placeholder: "rustc 1.85.0 (4d91de4e4 2025-02-17)"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Relevant log output. Run with `RUST_LOG=debug` if useful.
+      render: text
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Anything else relevant — config snippets, container runtime, network setup.
