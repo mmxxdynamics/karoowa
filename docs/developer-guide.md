@@ -1,8 +1,15 @@
 # Karoowa — Developer Guide
 
 **Audience:** application developers building on Karoowa — contract authors, dApp developers, agent builders, SDK consumers.
-**Target version:** v1.0.0-rc1.
-**Last updated:** 2026-04-12.
+**Target version:** v1.0 (in progress; current pre-release tag is `v0.5.0`).
+**Last updated:** 2026-05-05.
+
+> **Status note.** Sections marked _v1.0_ describe behaviour that ships with
+> the v1.0 release (currently in M6 audit-prep). The wallet, node, agent,
+> and SDK examples shown here run today against `v0.5.0`. CLI subcommands
+> that are not yet wired (e.g. `karoowa client send-tx`,
+> `karoowa devnet start --persist`) are flagged inline. Authoritative
+> reference is always `karoowa <cmd> --help`.
 
 ---
 
@@ -24,36 +31,50 @@ You get a chain you can spin up today (`karoowa devnet`) and tune for production
 ## 2. Quickstart (Devnet)
 
 ```bash
-# Install
-cargo install --git https://github.com/mmxxdynamics/karoowa karoowa
+# Install (from a release tag)
+cargo install --git https://github.com/mmxxdynamics/karoowa --tag v0.5.0 karoowa
 
-# Spin up a local single-node devnet
-karoowa devnet start --home /tmp/karoowa-dev
+# Generate a validator key
+karoowa wallet new --output /tmp/karoowa-dev.key
 
-# In another terminal: send a transaction
-karoowa client send-tx \
-  --rpc http://localhost:8545 \
-  --to 0xdeadbeef... \
-  --value 1000 \
-  --key /tmp/karoowa-dev/keys/dev.json
+# Start a single-node PoA devnet
+karoowa node \
+    --validator-key /tmp/karoowa-dev.key \
+    --consensus poa \
+    --data-dir /tmp/karoowa-dev/data \
+    --rpc-port 8545 \
+    --p2p-port 30303 \
+    --block-time 2
+
+# In another terminal: hit the RPC
+curl -s http://localhost:8545/health
+curl -s -X POST http://localhost:8545 \
+    -H 'content-type: application/json' \
+    -d '{"jsonrpc":"2.0","id":1,"method":"karoowa_blockNumber","params":[]}'
 ```
 
-The devnet runs with a single PoA validator, 1-second blocks, and chain id `karoowa-dev-1`. It's deterministic and resets on restart unless you pass `--persist`.
+A single-node devnet runs with one PoA validator and 2-second blocks. Add
+`--genesis-allocation 0xADDR=AMOUNT` to seed balances on a fresh chain.
+
+> **v1.0:** the streamlined `karoowa devnet start --home <dir> --persist`
+> wrapper that sets up keys, genesis, and a multi-node BFT cluster in a
+> single command lands with v1.0. Until then, use `karoowa node` directly
+> as shown above, or run the four-validator Docker compose
+> (`docker compose -f docker/devnet.yml up -d`).
 
 ---
 
 ## 3. RPC / API Surface
 
-Karoowa exposes four HTTP surfaces on the same port (`8545` by default):
+Karoowa exposes five surfaces on the **same** port (`8545` by default):
 
 | Endpoint | Protocol | Use |
 |---|---|---|
 | `POST /` | JSON-RPC 2.0 | Queries + tx submission |
 | `GET /rest/v1/...` | REST | Block/tx/state fetch by hash or height |
+| `GET /ws` | WebSocket | Subscriptions (newHeads, logs, pending) |
 | `GET /health`, `/ready` | Plain HTTP | Liveness / readiness probes |
 | `GET /metrics` | Prometheus text | Ops scraping |
-
-WebSocket subscriptions live on port `8546`.
 
 ### 3.1 Core JSON-RPC methods
 
@@ -80,7 +101,7 @@ The `Block`, `Transaction`, and `Receipt` JSON shapes match the types in `core/k
 ### 3.2 WebSocket subscriptions
 
 ```
-wscat -c ws://localhost:8546
+wscat -c ws://localhost:8545/ws
 > {"jsonrpc":"2.0","id":1,"method":"karoowa_subscribe","params":["newHeads"]}
 ```
 
@@ -168,7 +189,12 @@ Total budget = transaction `gas_limit`. If fuel runs out mid-call, the VM traps 
 
 ### 4.4 Deploying
 
+> **v1.0:** the `karoowa client deploy` one-liner below ships in v1.0.
+> Until then, build a deploy transaction via the SDK (`TxBuilder::deploy`)
+> and submit it with `client.send_raw_tx`.
+
 ```bash
+# v1.0 wrapper:
 karoowa client deploy \
   --rpc http://localhost:8545 \
   --bytecode target/wasm32-unknown-unknown/release/my_contract.wasm \
@@ -329,19 +355,28 @@ Submit → Deposit → Voting → Timelock → Executed
 
 ## 8. Testing Locally
 
-### 8.1 Single-node devnet
+### 8.1 Single-node devnet (today)
 
 ```bash
-karoowa devnet start --home /tmp/kar --persist
+karoowa wallet new --output /tmp/kar.key
+karoowa node \
+    --validator-key /tmp/kar.key \
+    --consensus poa \
+    --data-dir /tmp/kar/data
 ```
 
-### 8.2 Multi-node devnet
+### 8.2 Multi-node devnet (today)
 
 ```bash
-karoowa devnet start --home /tmp/kar --nodes 4 --bft
+karoowa genesis generate --validators 4 --output docker/genesis.toml
+docker compose -f docker/devnet.yml up -d
 ```
 
-Spins up four nodes on localhost with BFT consensus. Useful for testing governance voting and validator rotation flows.
+Spins up four PoA validators plus Prometheus + Grafana via Docker.
+
+> **v1.0:** `karoowa devnet start --home <dir> --nodes 4 --bft` will
+> bundle this into a single-command BFT cluster for governance and
+> validator-rotation testing.
 
 ### 8.3 Running the test suite
 

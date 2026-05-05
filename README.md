@@ -50,17 +50,19 @@ for what's in flight.
 ## Install
 
 ```sh
-# Pre-built binaries (Linux, macOS, Windows)
+# Pre-built binaries (Linux, macOS, Windows). Verifies SHA-256 checksums.
 curl -fsSL https://install.karoowa.io | sh
 
-# Or, from a release tag
+# Or, build from a tagged source release
 cargo install --git https://github.com/mmxxdynamics/karoowa --tag v0.5.0 karoowa
 ```
 
-Verify a release artifact (Sigstore keyless):
+Releases produced by the v0.6+ release workflow ship Sigstore keyless
+signatures, SLSA build-provenance attestations, and a CycloneDX SBOM
+(see [`RELEASE.md`](RELEASE.md) for the full verification commands):
 
 ```sh
-gh attestation verify karoowa-v0.5.0-x86_64-unknown-linux-musl.tar.gz \
+gh attestation verify karoowa-v0.6.0-x86_64-unknown-linux-musl.tar.gz \
     --repo mmxxdynamics/karoowa
 ```
 
@@ -124,14 +126,32 @@ two most recent stables are always supported.
 
 ## Documentation
 
-| Document                                                                                      | Purpose                                                  |
-| --------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| [`docs/developer-guide.md`](docs/developer-guide.md)                                          | Developer onboarding, SDK usage, agent integration       |
-| [`docs/operator-guide.md`](docs/operator-guide.md)                                            | Running validators, hardening, monitoring                |
-| [`docs/tokenomics.md`](docs/tokenomics.md)                                                    | Network economics, staking, rewards                      |
-| [`specs/strategy/01_product_vision_and_strategy.md`](specs/strategy/01_product_vision_and_strategy.md) | Vision, audience, personas, success criteria             |
-| [`specs/strategy/02_technical_strategy.md`](specs/strategy/02_technical_strategy.md)          | Architecture, tech stack, open-core strategy             |
-| [`specs/strategy/03_decision_log.md`](specs/strategy/03_decision_log.md)                      | All locked decisions with rationale                      |
+**Guides** (forward-looking sections in the dev/operator guides flagged
+inline as _v1.0_):
+
+| Document                                                                                                | Purpose                                                  |
+| ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| [`docs/developer-guide.md`](docs/developer-guide.md)                                                    | SDK usage, RPC surface, contract dev, agent integration  |
+| [`docs/operator-guide.md`](docs/operator-guide.md)                                                      | Running validators, hardening, monitoring, incident runbooks |
+| [`docs/tokenomics.md`](docs/tokenomics.md)                                                              | Network economics, staking, rewards                      |
+
+**Project / contributor docs:**
+
+| Document                                                                                                | Purpose                                                  |
+| ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| [`CHANGELOG.md`](CHANGELOG.md)                                                                          | What shipped in each release                             |
+| [`RELEASE.md`](RELEASE.md)                                                                              | Release cadence, signing, SBOM, rollback                 |
+| [`SECURITY.md`](SECURITY.md)                                                                            | Vulnerability disclosure + supported versions            |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md)                                                                    | Dev checks, commit convention, DCO, open-core boundary   |
+| [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)                                                              | Contributor Covenant 2.1                                 |
+
+**Strategy specs:**
+
+| Document                                                                                                | Purpose                                                  |
+| ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| [`specs/strategy/01_product_vision_and_strategy.md`](specs/strategy/01_product_vision_and_strategy.md)  | Vision, audience, personas, success criteria             |
+| [`specs/strategy/02_technical_strategy.md`](specs/strategy/02_technical_strategy.md)                    | Architecture, tech stack, open-core strategy             |
+| [`specs/strategy/03_decision_log.md`](specs/strategy/03_decision_log.md)                                | All locked decisions with rationale                      |
 
 ## Roadmap
 

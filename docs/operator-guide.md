@@ -1,8 +1,14 @@
 # Karoowa — Operator Guide
 
 **Audience:** ops engineers running a Karoowa node in production (validator, full node, or enterprise deployment).
-**Target version:** v1.0.0-rc1 and later.
-**Last updated:** 2026-04-12.
+**Target version:** v1.0 (in progress; current pre-release tag is `v0.5.0`).
+**Last updated:** 2026-05-05.
+
+> **Status note.** Capabilities marked _v1.0_ (HSM, HA lease backends,
+> hard-upgrade migration framework, k8s reference manifests) describe the
+> v1.0 surface area. Hardware sizing, RPC ports, monitoring metrics, and
+> the systemd unit work today against `v0.5.0`. Authoritative reference
+> is always `karoowa <cmd> --help`.
 
 ---
 
@@ -26,13 +32,24 @@
 
 ## 2. Installation
 
-### 2.1 From a release binary
+### 2.1 From a release binary (recommended)
 
 ```bash
-# Download the release artifact for your OS
-curl -L https://github.com/mmxxdynamics/karoowa/releases/download/v1.0.0-rc1/karoowa-linux-x86_64.tar.gz \
+# One-liner installer (verifies SHA-256 checksum)
+curl -fsSL https://install.karoowa.io | sh
+
+# Or pin to a specific tag
+VERSION=v0.5.0
+curl -fsSL https://github.com/mmxxdynamics/karoowa/releases/download/${VERSION}/karoowa-${VERSION}-x86_64-unknown-linux-musl.tar.gz \
   | tar xz -C /usr/local/bin
 karoowa --version
+```
+
+Verify the Sigstore keyless signature before running in production:
+
+```bash
+gh attestation verify karoowa-${VERSION}-x86_64-unknown-linux-musl.tar.gz \
+    --repo mmxxdynamics/karoowa
 ```
 
 ### 2.2 From source
@@ -44,17 +61,23 @@ cargo build --release --bin karoowa
 install target/release/karoowa /usr/local/bin/
 ```
 
-The MSRV is Rust 1.89 (pinned in `rust-toolchain.toml`). `rustup` will pick it up automatically.
+The MSRV is **Rust 1.85** (pinned in `rust-toolchain.toml`). `rustup` will
+pick it up automatically.
 
 ### 2.3 Via Docker
 
 ```bash
 docker run --rm -it \
   -v /var/lib/karoowa:/data \
-  -p 26656:26656 \
   -p 8545:8545 \
-  ghcr.io/mmxxdynamics/karoowa:v1.0.0-rc1 \
-  node --home /data
+  -p 30303:30303 \
+  ghcr.io/mmxxdynamics/karoowa:v0.5.0 \
+  node \
+      --validator-key /data/validator.key \
+      --consensus poa \
+      --data-dir /data \
+      --rpc-port 8545 \
+      --p2p-port 30303
 ```
 
 ---
@@ -64,7 +87,7 @@ docker run --rm -it \
 ### 3.1 Generate a validator keypair
 
 ```bash
-karoowa wallet generate --out /var/lib/karoowa/keys/validator.json
+karoowa wallet new --output /var/lib/karoowa/keys/validator.key
 ```
 
 Back up the output file **immediately** and store a copy in cold storage. Losing this key means losing your validator slot. For mainnet, generate keys inside an HSM (see §7).
@@ -72,15 +95,25 @@ Back up the output file **immediately** and store a copy in cold storage. Losing
 ### 3.2 Join a network
 
 ```bash
-# Testnet
+# Devnet (today)
 karoowa node \
-  --home /var/lib/karoowa \
-  --genesis /etc/karoowa/testnet-genesis.json \
-  --key /var/lib/karoowa/keys/validator.json \
-  --bootnodes /ip4/bootnode-1.karoowa.io/tcp/26656/p2p/12D3KooW...
+  --validator-key /var/lib/karoowa/keys/validator.key \
+  --consensus poa \
+  --data-dir /var/lib/karoowa/data \
+  --rpc-port 8545 \
+  --p2p-port 30303 \
+  --bootnodes /ip4/bootnode-1.karoowa.io/tcp/30303/p2p/12D3KooW...
 ```
 
-Genesis files for each network are published on the releases page and in `specs/genesis/`. Verify the genesis hash against the value published on <https://karoowa.io/genesis>.
+Or use the convenience script for the public devnet:
+
+```bash
+KAROOWA_BOOTNODE=/ip4/.../tcp/30303/p2p/... bash scripts/join-devnet.sh
+```
+
+> **v1.0:** named-network join (`--join testnet`) and per-network signed
+> genesis files in `specs/genesis/` ship with v1.0. Verify the genesis
+> hash against the value published on <https://karoowa.io/genesis>.
 
 ### 3.3 Initial sync
 
@@ -121,7 +154,12 @@ Wants=network-online.target
 
 [Service]
 User=karoowa
-ExecStart=/usr/local/bin/karoowa node --home /var/lib/karoowa
+ExecStart=/usr/local/bin/karoowa node \
+    --validator-key /var/lib/karoowa/keys/validator.key \
+    --consensus poa \
+    --data-dir /var/lib/karoowa/data \
+    --rpc-port 8545 \
+    --p2p-port 30303
 Restart=on-failure
 RestartSec=5
 LimitNOFILE=65536
@@ -151,12 +189,22 @@ spec:
       terminationGracePeriodSeconds: 90
       containers:
         - name: karoowa
-          image: ghcr.io/mmxxdynamics/karoowa:v1.0.0-rc1
-          args: ["node", "--home", "/data"]
+          image: ghcr.io/mmxxdynamics/karoowa:v0.5.0
+          args:
+            - node
+            - --validator-key
+            - /data/validator.key
+            - --consensus
+            - poa
+            - --data-dir
+            - /data
+            - --rpc-port
+            - "8545"
+            - --p2p-port
+            - "30303"
           ports:
-            - { name: p2p,  containerPort: 26656 }
             - { name: rpc,  containerPort: 8545 }
-            - { name: ws,   containerPort: 8546 }
+            - { name: p2p,  containerPort: 30303 }
           volumeMounts:
             - { name: data, mountPath: /data }
           resources:
@@ -238,7 +286,7 @@ Watch the upgrade chat channel on Discord for live ops coordination. Most valida
 
 Production validators should never hold their signing key in a file. Use an HSM.
 
-### 7.1 SoftHsm (development / CI only)
+### 7.1 SoftHsm (development / CI only) — _v1.0_
 
 ```bash
 karoowa node \
@@ -246,11 +294,14 @@ karoowa node \
   --hsm-store /etc/karoowa/softhsm.json
 ```
 
-**Not for mainnet.** SoftHsm keeps the key material in a JSON file; if the host is compromised the key is compromised.
+**Not for mainnet.** SoftHsm keeps the key material in a JSON file; if the
+host is compromised the key is compromised.
 
-### 7.2 Real HSMs (v1.1)
+### 7.2 Real HSMs — _v1.1_
 
-AWS CloudHSM and YubiHSM 2 drivers ship in v1.1. The trait surface is stable today — integration reviews the same `HsmProvider` API that SoftHsm implements.
+AWS CloudHSM and YubiHSM 2 drivers ship in v1.1. The `HsmProvider` trait
+in `enterprise/karoowa-hsm/src/provider.rs` is stable today — integrations
+implement the same trait that SoftHsm does.
 
 ### 7.3 Key rotation
 
@@ -286,18 +337,24 @@ The node will resume from the backed-up height and catch up via state-sync.
 
 ---
 
-## 9. HA / Active-Standby (Enterprise)
+## 9. HA / Active-Standby (Enterprise) — _v1.0_
 
-Phase 6.3 ships `karoowa-ha` for single-host-pair deployments:
+The `enterprise/karoowa-ha` crate ships lease-based active-standby for
+single-host-pair deployments. The runtime CLI integration lands with v1.0:
 
 ```bash
+# v1.0:
 karoowa node \
   --ha-enabled \
   --ha-node-id validator-a \
-  --ha-lease-backend inmemory  # v1.0; sql/etcd in v1.1
+  --ha-lease-backend inmemory   # v1.0
+  # --ha-lease-backend etcd     # v1.1
 ```
 
-Both nodes run the same config with different `--ha-node-id`. Only the lease holder produces blocks; the standby hot-syncs via P2P and takes over on expiry. See `enterprise/karoowa-ha/README.md` for the failover SLAs.
+Both nodes run the same config with different `--ha-node-id`. Only the
+lease holder produces blocks; the standby hot-syncs via P2P and takes
+over on expiry. See `enterprise/karoowa-ha/README.md` for the failover
+SLAs and the lease-backend trait surface (stable today).
 
 ---
 
