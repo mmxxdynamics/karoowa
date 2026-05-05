@@ -1,6 +1,6 @@
-# Karoowa — Developer Guide
+# Karoowa: Developer Guide
 
-**Audience:** application developers building on Karoowa — contract authors, dApp developers, agent builders, SDK consumers.
+**Audience:** application developers building on Karoowa: contract authors, dApp developers, agent builders, SDK consumers.
 **Target version:** v1.0 (in progress; current pre-release tag is `v0.5.0`).
 **Last updated:** 2026-05-05.
 
@@ -17,12 +17,12 @@
 
 Karoowa is an agent-native, Rust-based Layer-1 blockchain framework with:
 
-- **Pluggable consensus** — PoA, PoS, and Tendermint-style BFT ship in-tree; a `ConsensusEngine` trait lets downstream teams plug in custom engines without forking the core.
-- **WASM contracts** — wasmtime-backed execution with fuel metering, memory limits, and a small host function surface.
-- **EIP-1559 / EIP-2718 / EIP-2930 transaction envelopes** — legacy and typed transactions coexist in the same mempool.
-- **Lock-and-mint bridge primitives** — a Karoowa-native cross-chain bridge with Merkle-proven packet commitments.
-- **Two-chamber on-chain governance** — validator supermajority for chain-critical parameters, token-weighted voting for treasury and signaling.
-- **Agent runtime** — first-class AI agents (governance, treasury, security, optimizer) that run alongside the node.
+- **Pluggable consensus**: PoA, PoS, and Tendermint-style BFT ship in-tree; a `ConsensusEngine` trait lets downstream teams plug in custom engines without forking the core.
+- **WASM contracts**: wasmtime-backed execution with fuel metering, memory limits, and a small host function surface.
+- **EIP-1559 / EIP-2718 / EIP-2930 transaction envelopes**: legacy and typed transactions coexist in the same mempool.
+- **Lock-and-mint bridge primitives**: a Karoowa-native cross-chain bridge with Merkle-proven packet commitments.
+- **Two-chamber on-chain governance**: validator supermajority for chain-critical parameters, token-weighted voting for treasury and signaling.
+- **Agent runtime**: first-class AI agents (governance, treasury, security, optimizer) that run alongside the node.
 
 You get a chain you can spin up today (`karoowa devnet`) and tune for production later.
 
@@ -80,8 +80,8 @@ Karoowa exposes five surfaces on the **same** port (`8545` by default):
 
 | Method | Params | Returns |
 |---|---|---|
-| `karoowa_chainId` | – | `u64` |
-| `karoowa_blockNumber` | – | `u64` |
+| `karoowa_chainId` | - | `u64` |
+| `karoowa_blockNumber` | - | `u64` |
 | `karoowa_getBlockByHash` | `[hash]` | `Block` |
 | `karoowa_getBlockByNumber` | `[u64]` | `Block` |
 | `karoowa_getTransactionByHash` | `[hash]` | `Transaction` |
@@ -93,10 +93,10 @@ Karoowa exposes five surfaces on the **same** port (`8545` by default):
 | `karoowa_sendRawTransaction` | `[bytes]` | `hash` |
 | `karoowa_call` | `[tx, u64?]` | `Vec<u8>` |
 | `karoowa_getLogs` | `[filter]` | `Vec<Log>` |
-| `karoowa_gasPrice` | – | `u64` |
+| `karoowa_gasPrice` | - | `u64` |
 | `karoowa_getBaseFee` | `[u64?]` | `u64` |
 
-The `Block`, `Transaction`, and `Receipt` JSON shapes match the types in `core/karoowa-core/src/{block,transaction,receipt}.rs` — the RPC serializer is a thin wrapper over `serde_json`.
+The `Block`, `Transaction`, and `Receipt` JSON shapes match the types in `core/karoowa-core/src/{block,transaction,receipt}.rs`: the RPC serializer is a thin wrapper over `serde_json`.
 
 ### 3.2 WebSocket subscriptions
 
@@ -107,9 +107,9 @@ wscat -c ws://localhost:8545/ws
 
 Topics:
 
-- `newHeads` — block headers as they finalize
-- `logs` (filter) — event logs matching a filter
-- `newPendingTransactions` — tx hashes as they enter the mempool
+- `newHeads`: block headers as they finalize
+- `logs` (filter): event logs matching a filter
+- `newPendingTransactions`: tx hashes as they enter the mempool
 
 ### 3.3 REST shortcuts
 
@@ -132,7 +132,7 @@ Karoowa runs arbitrary WASM. You can write contracts in any language that compil
 ### 4.1 Rust contract skeleton
 
 ```rust
-// lib.rs — compile with `cargo build --target wasm32-unknown-unknown --release`
+// lib.rs: compile with `cargo build --target wasm32-unknown-unknown --release`
 
 #[link(wasm_import_module = "env")]
 extern "C" {
@@ -156,7 +156,7 @@ pub extern "C" fn deploy(_args_ptr: i32, _args_len: i32) -> i32 {
 }
 ```
 
-`call` is the runtime entry point for contract invocations. `deploy` is optional — if present, it runs once at deployment time.
+`call` is the runtime entry point for contract invocations. `deploy` is optional: if present, it runs once at deployment time.
 
 ### 4.2 Host function catalog
 
@@ -248,10 +248,10 @@ See `core/karoowa-sdk/examples/` for more.
 
 Karoowa's agent runtime (`core/karoowa-agents`) runs long-lived AI agents that can observe chain state and submit transactions. Built-in agents:
 
-- **Governance** — watches proposals, summarizes voting, alerts on quorum risk
-- **Treasury** — tracks treasury outflows, flags anomalies
-- **Security** — monitors for suspicious contract calls, rate-limits RPC
-- **Optimizer** — suggests gas-limit and fee-target adjustments based on recent blocks
+- **Governance**: watches proposals, summarizes voting, alerts on quorum risk
+- **Treasury**: tracks treasury outflows, flags anomalies
+- **Security**: monitors for suspicious contract calls, rate-limits RPC
+- **Optimizer**: suggests gas-limit and fee-target adjustments based on recent blocks
 
 ### 6.1 Running an agent
 
@@ -280,7 +280,7 @@ impl Agent for MyAgent {
 }
 ```
 
-Agents run inside the node process by default. They share the HTTP client with the node but are isolated from consensus — an agent crash cannot halt the chain.
+Agents run inside the node process by default. They share the HTTP client with the node but are isolated from consensus: an agent crash cannot halt the chain.
 
 ### 6.3 Certified agents (Enterprise)
 
@@ -294,20 +294,20 @@ For production deployments, third-party agents must be certified via `enterprise
 
 ```
 core/
-  karoowa-crypto    — ed25519, sha3, address derivation
-  karoowa-core      — block, tx, state, receipt, config, license
-  karoowa-trie      — sparse Merkle trie (state commitment)
-  karoowa-storage   — RocksDB persistence
-  karoowa-consensus — PoA, PoS, BFT, producer, mempool
-  karoowa-vm        — wasmtime contract executor + host functions
-  karoowa-light     — light client
-  karoowa-bridge    — cross-chain primitives
-  karoowa-governance — on-chain governance state machine
-  karoowa-network   — libp2p (gossipsub, kad, state-sync, light, bridge)
-  karoowa-api       — Axum RPC/REST/WS gateway
-  karoowa-sdk       — client library
-  karoowa-agents    — agent runtime
-  karoowa           — node binary
+  karoowa-crypto   : ed25519, sha3, address derivation
+  karoowa-core     : block, tx, state, receipt, config, license
+  karoowa-trie     : sparse Merkle trie (state commitment)
+  karoowa-storage  : RocksDB persistence
+  karoowa-consensus: PoA, PoS, BFT, producer, mempool
+  karoowa-vm       : wasmtime contract executor + host functions
+  karoowa-light    : light client
+  karoowa-bridge   : cross-chain primitives
+  karoowa-governance: on-chain governance state machine
+  karoowa-network  : libp2p (gossipsub, kad, state-sync, light, bridge)
+  karoowa-api      : Axum RPC/REST/WS gateway
+  karoowa-sdk      : client library
+  karoowa-agents   : agent runtime
+  karoowa          : node binary
 enterprise/
   karoowa-license karoowa-audit-log karoowa-rbac
   karoowa-hsm karoowa-ha karoowa-marketplace
@@ -397,12 +397,12 @@ CI also enforces `cargo clippy --workspace --all-targets -- -D warnings`, `cargo
 
 ## 9. Where to Read Next
 
-- `docs/operator-guide.md` — running a production node
-- `docs/tokenomics.md` — supply schedule, fees, staking, treasury
-- `specs/audit/architecture.md` — full sequence diagrams for auditors
-- `specs/audit/threat-model.md` — trust boundaries and invariants
-- `specs/development/dev_plan_m4_m6.md` — the M4–M6 build plan
-- `CONTRIBUTING.md` — how to send a PR
+- `docs/operator-guide.md`: running a production node
+- `docs/tokenomics.md`: supply schedule, fees, staking, treasury
+- `specs/audit/architecture.md`: full sequence diagrams for auditors
+- `specs/audit/threat-model.md`: trust boundaries and invariants
+- `specs/development/dev_plan_m4_m6.md`: the M4-M6 build plan
+- `CONTRIBUTING.md`: how to send a PR
 
 ## 10. Community
 

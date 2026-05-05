@@ -32,12 +32,12 @@ v1.0 ships. Pre-1.0 releases may make breaking changes between minor versions.
 
 - All `enterprise/*` crates marked `publish = false` and switched from
   `license-file` to a `LicenseRef-Karoowa-Enterprise` SPDX expression.
-- `LICENSE-ENTERPRISE.md` rewritten — explicit "review-only until BSL 1.1
+- `LICENSE-ENTERPRISE.md` rewritten: explicit "review-only until BSL 1.1
   text is published" notice replaces the placeholder.
 - `deny.toml` tightened: stricter advisory policy, OpenSSL/native-tls banned
   in favour of rustls, unknown git registries denied.
 - README MSRV row corrected to **Rust 1.85+** (was 1.78), status line updated
-  to reflect M1–M6 progress.
+  to reflect M1-M6 progress.
 - `scripts/install.sh` now aborts on a checksum mismatch (previously it
   swallowed the failure with `|| true`).
 
@@ -45,14 +45,14 @@ v1.0 ships. Pre-1.0 releases may make breaking changes between minor versions.
 
 - AI-assistant attribution lines from spec / dev-plan files. Anthropic
   references that document the *Anthropic LLM provider* feature in
-  `karoowa-agents` are kept — they describe a real product integration.
+  `karoowa-agents` are kept: they describe a real product integration.
 
-## [0.5.0] — 2026-04-12
+## [0.5.0]: 2026-04-12
 
 - M5: Karoowa bridge primitives (MVP) and libp2p bridge request-response
   protocol.
 
-## [0.4.0] — 2026-04-12
+## [0.4.0]: 2026-04-12
 
 - M4: EIP-1559 / EIP-2718 / EIP-2930 transaction types, libp2p light-client
   request-response, M4 Enterprise agent bundle (Governance + Treasury).

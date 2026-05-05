@@ -1,4 +1,4 @@
-# Karoowa — Tokenomics
+# Karoowa: Tokenomics
 
 **Status:** Draft for mainnet launch review.
 **Version:** v1.0.
@@ -17,10 +17,10 @@ This document describes the native token (KAR) supply schedule, the EIP-1559 fee
 
 KAR is used for:
 
-1. **Gas payment** — every transaction pays a base fee + priority tip in KAR.
-2. **Staking** — validators bond KAR to produce blocks; delegators bond KAR to validators for a share of rewards.
-3. **Governance weight** — token-weighted chamber votes use staked KAR.
-4. **Treasury** — a fraction of every block's issuance + fee burn flows into the on-chain treasury.
+1. **Gas payment**: every transaction pays a base fee + priority tip in KAR.
+2. **Staking**: validators bond KAR to produce blocks; delegators bond KAR to validators for a share of rewards.
+3. **Governance weight**: token-weighted chamber votes use staked KAR.
+4. **Treasury**: a fraction of every block's issuance + fee burn flows into the on-chain treasury.
 
 ---
 
@@ -32,7 +32,7 @@ The 1B genesis supply is split as follows:
 |---|---|---|---|
 | Community & ecosystem | 350M | 35% | linear over 4 years |
 | Core contributors | 200M | 20% | 1-year cliff, linear 3 years after |
-| Treasury (on-chain) | 200M | 20% | none — governance-controlled day 1 |
+| Treasury (on-chain) | 200M | 20% | none: governance-controlled day 1 |
 | Validators (initial set) | 150M | 15% | linear over 2 years, forfeited on slashing |
 | Public sale | 80M | 8% | none |
 | Foundation | 20M | 2% | linear over 5 years |
@@ -45,8 +45,8 @@ The 1B genesis supply is split as follows:
 
 Karoowa implements EIP-1559 / EIP-2718 / EIP-2930 from day one. Every block has:
 
-- **`base_fee`** — the minimum gas price to be included. Adjusts per block based on the previous block's gas usage relative to `base_fee_target_gas` (a governable parameter, 15M by default).
-- **`priority_fee`** — the tip sent to the block proposer above the base fee. Paid in full on successful inclusion.
+- **`base_fee`**: the minimum gas price to be included. Adjusts per block based on the previous block's gas usage relative to `base_fee_target_gas` (a governable parameter, 15M by default).
+- **`priority_fee`**: the tip sent to the block proposer above the base fee. Paid in full on successful inclusion.
 
 ### 3.1 Base fee curve
 
@@ -57,14 +57,14 @@ else:
     base_fee -= base_fee * (target - gas_used) / target / 8
 ```
 
-This is the canonical EIP-1559 adjustment. The `/8` divisor means the base fee can move at most ~12.5% per block, smoothing out demand spikes over 7–8 blocks.
+This is the canonical EIP-1559 adjustment. The `/8` divisor means the base fee can move at most ~12.5% per block, smoothing out demand spikes over 7-8 blocks.
 
 ### 3.2 Fee burn + treasury split
 
 Of the base fee portion of each transaction:
 
-- **70% burned** — permanent supply reduction
-- **30% to treasury** — credited to the treasury account atomically with the block
+- **70% burned**: permanent supply reduction
+- **30% to treasury**: credited to the treasury account atomically with the block
 
 The 30% treasury split is a deliberate divergence from Ethereum's pure-burn model. It funds the on-chain treasury without relying on new inflation, which gives long-term projects a predictable grant stream.
 
@@ -101,7 +101,7 @@ Each newly-minted block reward is split:
 | Treasury | 15% |
 | Burn (demand-gated) | 5% |
 
-The 5% burn is only applied when network utilization exceeds the target — under low utilization it flows to the treasury instead. This creates mild deflationary pressure on busy chains and keeps the treasury funded on quiet ones.
+The 5% burn is only applied when network utilization exceeds the target: under low utilization it flows to the treasury instead. This creates mild deflationary pressure on busy chains and keeps the treasury funded on quiet ones.
 
 ### 4.2 Delegation split
 
@@ -132,7 +132,7 @@ A validator that has accepted delegations splits their 75% share with delegators
 | Double-signing | 5% | permanent |
 | Equivocation (conflicting BFT votes) | 5% | permanent |
 
-Slashing is deterministic on-chain and permanent — there is no appeals process at the protocol layer. Off-chain evidence of coercion or hardware failure can motivate a governance refund proposal through the token chamber.
+Slashing is deterministic on-chain and permanent: there is no appeals process at the protocol layer. Off-chain evidence of coercion or hardware failure can motivate a governance refund proposal through the token chamber.
 
 ---
 
@@ -190,7 +190,7 @@ Rough annualised cost for a single validator meeting the hardware requirements i
 | On-call engineer (10% of one FTE) | 15,000 |
 | **Total** | **≈ $22,800** |
 
-With the minimum 1M KAR total bond at nominal $1, validator revenue at 10% APY is ~$100k/year — comfortably covering cost even after delegator commission.
+With the minimum 1M KAR total bond at nominal $1, validator revenue at 10% APY is ~$100k/year: comfortably covering cost even after delegator commission.
 
 ---
 
@@ -200,13 +200,13 @@ All of the following parameters live in the governable registry (`core/karoowa-g
 
 | Parameter | Default | Range | Tier |
 |---|---|---|---|
-| `block_time_ms` | 2000 | 500 – 60000 | ValidatorOnly |
-| `block_gas_limit` | 30M | 1M – 1B | ValidatorOnly |
-| `min_gas_price` | 1 | 1 – 1M | ValidatorOnly |
-| `base_fee_target_gas` | 15M | 500k – 500M | ValidatorOnly |
-| `voting_period_blocks` | 100k | 100 – 10M | General |
-| `timelock_blocks` | 20k | 0 – 1M | General |
-| `min_proposal_deposit` | 1M | 1 – u64::MAX | General |
+| `block_time_ms` | 2000 | 500 - 60000 | ValidatorOnly |
+| `block_gas_limit` | 30M | 1M - 1B | ValidatorOnly |
+| `min_gas_price` | 1 | 1 - 1M | ValidatorOnly |
+| `base_fee_target_gas` | 15M | 500k - 500M | ValidatorOnly |
+| `voting_period_blocks` | 100k | 100 - 10M | General |
+| `timelock_blocks` | 20k | 0 - 1M | General |
+| `min_proposal_deposit` | 1M | 1 - u64::MAX | General |
 
 The two chambers:
 
@@ -217,10 +217,10 @@ The two chambers:
 
 ## 9. Open Decisions Before Mainnet
 
-- **Final inflation floor** — 2% vs 1.5% vs 1% at year 8+. Currently 2%.
-- **Validator commission cap** — 25% is the current draft; some chains run 20% or 15%.
-- **Slashing on downtime** — 0.01% is lenient; may tighten after incentivised testnet data.
-- **Treasury share of base fee** — 30% is aggressive by Ethereum standards; reduce if the burn-vs-treasury tradeoff feels wrong after 3 months of mainnet.
-- **Public sale sizing** — 8% is the current draft; final number depends on regulatory guidance.
+- **Final inflation floor**: 2% vs 1.5% vs 1% at year 8+. Currently 2%.
+- **Validator commission cap**: 25% is the current draft; some chains run 20% or 15%.
+- **Slashing on downtime**: 0.01% is lenient; may tighten after incentivised testnet data.
+- **Treasury share of base fee**: 30% is aggressive by Ethereum standards; reduce if the burn-vs-treasury tradeoff feels wrong after 3 months of mainnet.
+- **Public sale sizing**: 8% is the current draft; final number depends on regulatory guidance.
 
 These numbers are open for community review until the genesis ceremony (Phase 6.7). Proposed changes go through the normal spec-review process.

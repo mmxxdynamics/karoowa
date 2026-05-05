@@ -1,7 +1,7 @@
 # Release Process
 
 This document describes how Karoowa releases are produced, signed, and
-published. It is the source of truth — the GitHub Actions workflows in
+published. It is the source of truth: the GitHub Actions workflows in
 `.github/workflows/` implement what is written here.
 
 ## Cadence
@@ -30,7 +30,7 @@ Pre-1.0:
 
 Post-1.0:
 
-- Strict [Semantic Versioning 2.0](https://semver.org/) — the changelog
+- Strict [Semantic Versioning 2.0](https://semver.org/): the changelog
   promises break only on major versions.
 
 ## Triggering a release
@@ -65,8 +65,8 @@ Plus an `OCI` image pushed to `ghcr.io/mmxxdynamics/karoowa:vX.Y.Z`.
 
 Every artifact published with a release ships with three companions:
 
-1. **SHA-256 checksums** — `checksums-sha256.txt`.
-2. **Sigstore keyless signature** (cosign) — `*.sig` and `*.crt` for each
+1. **SHA-256 checksums**: `checksums-sha256.txt`.
+2. **Sigstore keyless signature** (cosign): `*.sig` and `*.crt` for each
    archive, plus a signed `checksums-sha256.txt.sig`. Verify with:
    ```sh
    cosign verify-blob \
@@ -75,7 +75,7 @@ Every artifact published with a release ships with three companions:
      --signature checksums-sha256.txt.sig \
      checksums-sha256.txt
    ```
-3. **SLSA build-provenance attestation** (Level 3) — verifiable via:
+3. **SLSA build-provenance attestation** (Level 3): verifiable via:
    ```sh
    gh attestation verify karoowa-vX.Y.Z-x86_64-unknown-linux-musl.tar.gz \
      --repo mmxxdynamics/karoowa
@@ -99,7 +99,7 @@ release workflow via [`release-plz`](https://release-plz.dev/). Until then,
 `core/` crates are published manually by a maintainer with a verified
 crates.io account.
 
-`enterprise/*` crates are **never** published — they all set
+`enterprise/*` crates are **never** published: they all set
 `publish = false`.
 
 ## Rolling back
@@ -112,5 +112,5 @@ If a release is broken:
    section to the changelog.
 4. Cut a fixed `vX.Y.Z+1` patch release.
 
-We deliberately do **not** delete release tags — yank + retract preserves the
+We deliberately do **not** delete release tags: yank + retract preserves the
 history for downstream tools.

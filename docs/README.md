@@ -12,8 +12,8 @@ End-user-facing documentation for Karoowa v1.0. Engineering specs live in `specs
 
 ## See Also
 
-- `specs/audit/architecture.md` — architecture overview with sequence diagrams (auditor-facing, but a useful deep dive for anyone)
-- `specs/audit/threat-model.md` — trust boundaries and invariants the system must maintain
-- `specs/development/dev_plan.md` / `dev_plan_m4_m6.md` — the M1–M6 development plan
-- `CONTRIBUTING.md` — how to send a pull request
-- `enterprise/README.md` — enterprise layer overview (BSL-licensed)
+- `specs/audit/architecture.md`: architecture overview with sequence diagrams (auditor-facing, but a useful deep dive for anyone)
+- `specs/audit/threat-model.md`: trust boundaries and invariants the system must maintain
+- `specs/development/dev_plan.md` / `dev_plan_m4_m6.md`: the M1-M6 development plan
+- `CONTRIBUTING.md`: how to send a pull request
+- `enterprise/README.md`: enterprise layer overview (BSL-licensed)

@@ -22,9 +22,9 @@ contributor experience as seriously as we do node performance.
    `test/`, `perf/`.
 3. Pick a task. Smaller, focused PRs are merged faster than large omnibus
    ones. The current dev plan lives in
-   [`specs/development/dev_plan.md`](specs/development/dev_plan.md) (M1–M3)
+   [`specs/development/dev_plan.md`](specs/development/dev_plan.md) (M1-M3)
    and [`specs/development/dev_plan_m4_m6.md`](specs/development/dev_plan_m4_m6.md)
-   (M4–M6).
+   (M4-M6).
 
 ## Local development checks
 
@@ -62,7 +62,7 @@ release-notes generation works automatically:
 - `fix(karoowa-bridge): clamp timeout to u32 to avoid overflow`
 - `docs(operator-guide): document HSM key rotation`
 
-Avoid checkpoint commits like `wip` or `fix typo` — squash them before pushing.
+Avoid checkpoint commits like `wip` or `fix typo`: squash them before pushing.
 A single PR should map to a single, logical commit (or a small chain of
 ordered commits if the change is genuinely multi-step).
 
@@ -94,7 +94,7 @@ before writing the code.
 
 ## Pull-request workflow
 
-1. **Open a draft PR early.** Even with a half-finished implementation —
+1. **Open a draft PR early.** Even with a half-finished implementation,
    discussion on direction is cheaper than rework.
 2. **Keep PRs small.** Aim for under ~500 changed lines (excluding generated
    code). Split larger changes into a stack of dependent PRs.
@@ -103,7 +103,7 @@ before writing the code.
 4. **Add tests.** New behaviour gets unit tests; cross-cutting changes get
    integration tests under `tests/` or a property test (proptest) where
    randomness exposes edge cases.
-5. **Update docs.** README, `docs/`, rustdoc — whichever is impacted.
+5. **Update docs.** README, `docs/`, rustdoc: whichever is impacted.
 6. **CI must be green** before requesting review.
 7. **Reviewer SLA:** at least one of the maintainers in `.github/CODEOWNERS`
    acknowledges within 72 hours; first round of feedback within 7 days.
@@ -119,7 +119,7 @@ For suspected vulnerabilities, follow [`SECURITY.md`](SECURITY.md) instead.
 
 Issues are for actionable bugs and feature requests. Open-ended questions
 belong in our discussion channel (link in the README). Search closed issues
-and the docs first — most questions have been answered before.
+and the docs first: most questions have been answered before.
 
 ## Style notes
 

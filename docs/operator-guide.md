@@ -1,4 +1,4 @@
-# Karoowa — Operator Guide
+# Karoowa: Operator Guide
 
 **Audience:** ops engineers running a Karoowa node in production (validator, full node, or enterprise deployment).
 **Target version:** v1.0 (in progress; current pre-release tag is `v0.5.0`).
@@ -117,7 +117,7 @@ KAROOWA_BOOTNODE=/ip4/.../tcp/30303/p2p/... bash scripts/join-devnet.sh
 
 ### 3.3 Initial sync
 
-A fresh node does a state-sync from a recent snapshot rather than replaying every block from genesis. On a modern NVMe box testnet catches up in 10–30 minutes; archive sync from genesis is roughly 4–8 hours.
+A fresh node does a state-sync from a recent snapshot rather than replaying every block from genesis. On a modern NVMe box testnet catches up in 10-30 minutes; archive sync from genesis is roughly 4-8 hours.
 
 Watch the sync make progress with:
 
@@ -250,8 +250,8 @@ For structured logs, set `KAROOWA_LOG_FORMAT=json`.
 
 ### 5.3 Health checks
 
-- `GET /health` — returns 200 if the node is running, 503 if shutting down.
-- `GET /ready` — returns 200 if synced (head within 2 blocks of peers), 503 otherwise. Use as the Kubernetes readiness probe.
+- `GET /health`: returns 200 if the node is running, 503 if shutting down.
+- `GET /ready`: returns 200 if synced (head within 2 blocks of peers), 503 otherwise. Use as the Kubernetes readiness probe.
 
 ---
 
@@ -286,7 +286,7 @@ Watch the upgrade chat channel on Discord for live ops coordination. Most valida
 
 Production validators should never hold their signing key in a file. Use an HSM.
 
-### 7.1 SoftHsm (development / CI only) — _v1.0_
+### 7.1 SoftHsm (development / CI only): _v1.0_
 
 ```bash
 karoowa node \
@@ -297,10 +297,10 @@ karoowa node \
 **Not for mainnet.** SoftHsm keeps the key material in a JSON file; if the
 host is compromised the key is compromised.
 
-### 7.2 Real HSMs — _v1.1_
+### 7.2 Real HSMs: _v1.1_
 
 AWS CloudHSM and YubiHSM 2 drivers ship in v1.1. The `HsmProvider` trait
-in `enterprise/karoowa-hsm/src/provider.rs` is stable today — integrations
+in `enterprise/karoowa-hsm/src/provider.rs` is stable today: integrations
 implement the same trait that SoftHsm does.
 
 ### 7.3 Key rotation
@@ -320,9 +320,9 @@ A key rotation emits an `AuditAction::KeyRotation` event to the SOC 2 audit log.
 ### 8.1 What to back up
 
 - `$HOME/keys/validator.json` (or HSM key slot metadata)
-- `$HOME/chain/rocksdb/` (full state — back up at restart, not hot)
+- `$HOME/chain/rocksdb/` (full state: back up at restart, not hot)
 - `$HOME/config.toml` + `$HOME/genesis.json`
-- The SOC 2 audit log at `$HOME/audit.jsonl` — **never truncated, append-only**
+- The SOC 2 audit log at `$HOME/audit.jsonl`: **never truncated, append-only**
 
 ### 8.2 Restore procedure
 
@@ -337,7 +337,7 @@ The node will resume from the backed-up height and catch up via state-sync.
 
 ---
 
-## 9. HA / Active-Standby (Enterprise) — _v1.0_
+## 9. HA / Active-Standby (Enterprise): _v1.0_
 
 The `enterprise/karoowa-ha` crate ships lease-based active-standby for
 single-host-pair deployments. The runtime CLI integration lands with v1.0:
@@ -364,7 +364,7 @@ SLAs and the lease-backend trait surface (stable today).
 
 - **Symptom:** `karoowa_consensus_height` flat for > 30 s across ≥ 1/3 of validators.
 - **First check:** peer count and BFT round number. If `karoowa_bft_round` is climbing without commits, it's a liveness failure.
-- **Action:** coordinate on Discord `#ops-incidents`. Do **not** restart unilaterally — a single validator rejoining can make a partition permanent.
+- **Action:** coordinate on Discord `#ops-incidents`. Do **not** restart unilaterally: a single validator rejoining can make a partition permanent.
 
 ### 10.2 Consensus split (two heights finalized)
 

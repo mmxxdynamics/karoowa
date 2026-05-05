@@ -1,4 +1,4 @@
-# Karoowa Enterprise — Licensing Notice
+# Karoowa Enterprise: Licensing Notice
 
 Code under the `enterprise/` directory of this repository is **proprietary**
 and is **not** covered by the Apache License 2.0 that governs the `core/`
@@ -27,7 +27,7 @@ question, contact: **enterprise@karoowa.io**.
 
 ## Why publish the source at all?
 
-Karoowa follows an open-core model. Publishing the enterprise source — even
-under restrictive terms — gives operators full visibility into how their data
+Karoowa follows an open-core model. Publishing the enterprise source: even
+under restrictive terms: gives operators full visibility into how their data
 is handled and lets the community audit the proprietary surface area. The
 restriction is on *use*, not on *inspection*.

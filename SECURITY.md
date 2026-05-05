@@ -10,11 +10,11 @@ versions of Karoowa receive security fixes.
 
 Please report privately through one of these channels (in order of preference):
 
-1. **GitHub Security Advisories** — open a private advisory at
+1. **GitHub Security Advisories**: open a private advisory at
    <https://github.com/mmxxdynamics/karoowa/security/advisories/new>.
    This is the preferred path because it lets us collaborate on a patch in a
    private fork.
-2. **Email** — send the details to **security@karoowa.io**. PGP key:
+2. **Email**: send the details to **security@karoowa.io**. PGP key:
    <https://karoowa.io/.well-known/security-pgp.asc>
    (fingerprint published on the team page once available).
 
@@ -42,13 +42,13 @@ You will be credited in the advisory and changelog unless you ask otherwise.
 Severity is graded against the [CVSS 3.1](https://www.first.org/cvss/v3.1/specification-document)
 scale, weighted by impact on:
 
-- **Validator safety** — anything that could cause a chain split, halt, or
+- **Validator safety**: anything that could cause a chain split, halt, or
   invalid block acceptance.
-- **Bridge safety** — issues that could lead to loss of bridged funds or
+- **Bridge safety**: issues that could lead to loss of bridged funds or
   forged cross-chain messages.
-- **Operator safety** — issues that compromise key material, audit-log
+- **Operator safety**: issues that compromise key material, audit-log
   integrity, or RBAC controls in `enterprise/`.
-- **Confidentiality / integrity** — leaked secrets, tampered storage.
+- **Confidentiality / integrity**: leaked secrets, tampered storage.
 
 ## Supported versions
 
@@ -59,7 +59,7 @@ security fixes.
 | ----------------- | --------------------------------- |
 | `0.6.x` (current) | Active                            |
 | `0.5.x`           | Critical fixes for 30 days        |
-| `< 0.5`           | Unsupported — please upgrade      |
+| `< 0.5`           | Unsupported: please upgrade      |
 
 After v1.0 we expect to support the latest two minor releases.
 

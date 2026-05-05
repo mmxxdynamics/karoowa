@@ -16,8 +16,8 @@
 
 Karoowa is a production-grade blockchain infrastructure framework written in
 Rust. It provides everything needed to launch, operate, and develop against a
-custom blockchain network — from genesis to devnet to mainnet — with AI
-agents built in to help at every stage.
+custom blockchain network, from genesis to devnet to mainnet, with AI agents
+built in to help at every stage.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -40,7 +40,7 @@ agents built in to help at every stage.
 
 ## Status
 
-**`0.6.0-dev` — pre-release.** Milestones M1 through M6 (audit prep) have
+**`0.6.0-dev`: pre-release.** Milestones M1 through M6 (audit prep) have
 landed; the M6 audit and v1.0 mainnet cut are next. APIs are stabilising but
 may still change between minor releases until v1.0. See
 [`CHANGELOG.md`](CHANGELOG.md) for what shipped in each release and
@@ -101,7 +101,7 @@ cargo build --release
 ./target/release/karoowa --version
 ```
 
-**MSRV: Rust 1.85.** The project tracks the **N-2** stable Rust policy — the
+**MSRV: Rust 1.85.** The project tracks the **N-2** stable Rust policy: the
 two most recent stables are always supported.
 
 ## Workspace layout
@@ -114,7 +114,7 @@ two most recent stables are always supported.
 | `karoowa-storage`       | RocksDB persistence (blocks, state, receipts)              |
 | `karoowa-network`       | libp2p P2P layer (Gossipsub + Kademlia)                    |
 | `karoowa-api`           | JSON-RPC 2.0 + REST + WebSocket gateway (Axum)             |
-| `karoowa-sdk`           | Developer SDK — wallet, client, transaction builders       |
+| `karoowa-sdk`           | Developer SDK: wallet, client, transaction builders        |
 | `karoowa-vm`            | WASM smart-contract VM and ABI                             |
 | `karoowa-trie`          | Sparse Merkle Trie state storage                           |
 | `karoowa-light`         | Light-client and state-sync protocol                       |
@@ -122,7 +122,7 @@ two most recent stables are always supported.
 | `karoowa-governance`    | On-chain governance module                                 |
 | `karoowa-agents`        | Pluggable LLM-provider agents (OpenAI, Anthropic, local)   |
 | `karoowa` (CLI)         | Node, wallet, devnet, genesis, network subcommands         |
-| `enterprise/*`          | Proprietary add-ons (BSL 1.1) — see LICENSE-ENTERPRISE.md  |
+| `enterprise/*`          | Proprietary add-ons (BSL 1.1): see LICENSE-ENTERPRISE.md   |
 
 ## Documentation
 
@@ -155,13 +155,13 @@ inline as _v1.0_):
 
 ## Roadmap
 
-- [x] **v0.1 (M1)** — Core primitives, PoA consensus, RocksDB storage, API gateway, Docker devnet, CLI, hobbyist install, M1 Dev agent bundle
-- [x] **v0.2 (M2)** — BFT consensus, PoS engine, mempool, WebSocket subscriptions, M2 Ops agent bundle, sidecar runtime
-- [x] **v0.3 (M3)** — WASM smart-contract VM, ABI encoder/decoder, contract SDK, M3 Security/Optimization agent bundle
-- [x] **v0.4 (M4)** — State sync, light-client, EIP-1559 / EIP-2718 / EIP-2930 transaction types
-- [x] **v0.5 (M5)** — Cross-chain bridge primitives, libp2p bridge request-response
-- [ ] **v0.6 (M6)** — Audit-prep, on-chain governance, Enterprise crates (license, audit-log, RBAC, HSM, HA, marketplace)
-- [ ] **v1.0** — Mainnet-ready, external audit, bounty programme
+- [x] **v0.1 (M1)**: Core primitives, PoA consensus, RocksDB storage, API gateway, Docker devnet, CLI, hobbyist install, M1 Dev agent bundle
+- [x] **v0.2 (M2)**: BFT consensus, PoS engine, mempool, WebSocket subscriptions, M2 Ops agent bundle, sidecar runtime
+- [x] **v0.3 (M3)**: WASM smart-contract VM, ABI encoder/decoder, contract SDK, M3 Security/Optimization agent bundle
+- [x] **v0.4 (M4)**: State sync, light-client, EIP-1559 / EIP-2718 / EIP-2930 transaction types
+- [x] **v0.5 (M5)**: Cross-chain bridge primitives, libp2p bridge request-response
+- [ ] **v0.6 (M6)**: Audit-prep, on-chain governance, Enterprise crates (license, audit-log, RBAC, HSM, HA, marketplace)
+- [ ] **v1.0**: Mainnet-ready, external audit, bounty programme
 
 ## Contributing
 
@@ -172,10 +172,10 @@ boundary rules. Report security issues privately via
 
 ## License
 
-- The `core/` directory is licensed under **Apache License 2.0** —
+- The `core/` directory is licensed under **Apache License 2.0**,
   see [`LICENSE`](LICENSE).
 - The `enterprise/` directory is **proprietary** (Business Source Licence
-  1.1, four-year convert to Apache 2.0) — see
+  1.1, four-year convert to Apache 2.0); see
   [`LICENSE-ENTERPRISE.md`](LICENSE-ENTERPRISE.md).
 - Unless explicitly noted, contributions are accepted under the same dual
   licence: anything you submit to `core/` is dual-licensed Apache-2.0 + MIT
