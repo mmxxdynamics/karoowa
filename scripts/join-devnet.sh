@@ -25,7 +25,12 @@ DATA_DIR="$KEY_DIR/data"
 RPC_PORT="${RPC_PORT:-8545}"
 P2P_PORT="${P2P_PORT:-30303}"
 
-BOOTNODE="/ip4/18.171.150.73/tcp/30303/p2p/12D3KooWJitDPByarFixYTcXjPUYbagVYdG4Z3AuY3MY5KvDaJUD"
+# Public Karoowa devnet bootnode. Override with $KAROOWA_BOOTNODE for a
+# private devnet, or set it to "none" to start an isolated single-node chain.
+# The published value is the "official" Karoowa devnet entry point and is
+# rotated periodically — see https://docs.karoowa.io/devnet for the latest.
+DEFAULT_BOOTNODE="/ip4/18.171.150.73/tcp/30303/p2p/12D3KooWJitDPByarFixYTcXjPUYbagVYdG4Z3AuY3MY5KvDaJUD"
+BOOTNODE="${KAROOWA_BOOTNODE:-$DEFAULT_BOOTNODE}"
 BIN="$REPO_ROOT/target/release/karoowa"
 
 echo "==> Repository: $REPO_ROOT"
@@ -52,11 +57,19 @@ echo
 echo "    Verify peer link in another terminal:"
 echo "        curl -s http://localhost:$RPC_PORT/health"
 echo
-exec "$BIN" node \
-    --validator-key "$KEY_FILE" \
-    --consensus poa \
-    --data-dir "$DATA_DIR" \
-    --bootnodes "$BOOTNODE" \
-    --rpc-port "$RPC_PORT" \
-    --p2p-port "$P2P_PORT" \
+
+NODE_ARGS=(
+    node
+    --validator-key "$KEY_FILE"
+    --consensus poa
+    --data-dir "$DATA_DIR"
+    --rpc-port "$RPC_PORT"
+    --p2p-port "$P2P_PORT"
     --block-time 2
+)
+
+if [ "$BOOTNODE" != "none" ]; then
+    NODE_ARGS+=(--bootnodes "$BOOTNODE")
+fi
+
+exec "$BIN" "${NODE_ARGS[@]}"

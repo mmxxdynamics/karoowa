@@ -91,8 +91,17 @@ main() {
 
     echo "Verifying checksum..."
     local checksums_url="https://github.com/${REPO}/releases/download/${version}/checksums-sha256.txt"
-    if curl -fsSL "$checksums_url" -o "$tmpdir/checksums.txt" 2>/dev/null; then
-        (cd "$tmpdir" && grep "karoowa-${version}-${platform}" checksums.txt | sha256sum -c --quiet 2>/dev/null) || true
+    if ! curl -fsSL "$checksums_url" -o "$tmpdir/checksums.txt"; then
+        echo "ERROR: could not download checksums file from $checksums_url" >&2
+        echo "Refusing to install an unverified binary. Set KAROOWA_SKIP_CHECKSUM=1 to bypass (NOT recommended)." >&2
+        [ "${KAROOWA_SKIP_CHECKSUM:-0}" = "1" ] || exit 1
+    else
+        if ! (cd "$tmpdir" && grep "karoowa-${version}-${platform}" checksums.txt | sha256sum -c --quiet); then
+            echo "ERROR: checksum mismatch — refusing to install." >&2
+            echo "If this is unexpected, please file a security report — see SECURITY.md." >&2
+            exit 1
+        fi
+        echo "Checksum OK."
     fi
 
     echo "Installing to $INSTALL_DIR/karoowa..."
