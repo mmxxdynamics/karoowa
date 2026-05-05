@@ -1,5 +1,6 @@
 # Rust
 target/
+target-*/
 **/*.rs.bk
 *.pdb
 
@@ -10,29 +11,49 @@ target/
 # Editor / IDE
 .vscode/
 .idea/
+.fleet/
+.zed/
 *.swp
 *.swo
 *~
-.DS_Store
+**/.DS_Store
 
 # Env / secrets
 .env
 .env.local
+.env.*.local
 *.key
 *.pem
 license.key
+secrets/
 
 # Build artifacts
 *.log
 *.tmp
 dist/
+out/
+*.tar.gz
+*.zip
 
 # Local data
 data/
 .karoowa/
 
-# Claude Code
-.claude/
+# Coverage / profiling
+*.profraw
+*.profdata
+lcov.info
+tarpaulin-report.html
 
-# Legacy design sketch (not part of the project)
+# SBOM / release artifacts (generated)
+*.spdx.json
+*.cdx.json
+
+# AI-tooling state (local only)
+.claude/
+.cursor/
+.aider*
+
+# Legacy / scratch (not part of the project)
 files/
+scratch/
