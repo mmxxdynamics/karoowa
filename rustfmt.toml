@@ -1,0 +1,18 @@
+# Rustfmt config for Karoowa. `cargo fmt --all` enforces this.
+# Most options are nightly-only — guarded by `unstable_features = false` so
+# we never accidentally produce diffs that depend on a nightly toolchain.
+
+edition = "2021"
+max_width = 100
+hard_tabs = false
+tab_spaces = 4
+newline_style = "Unix"
+use_small_heuristics = "Default"
+reorder_imports = true
+reorder_modules = true
+remove_nested_parens = true
+match_block_trailing_comma = false
+trailing_comma = "Vertical"
+trailing_semicolon = true
+use_field_init_shorthand = true
+use_try_shorthand = true

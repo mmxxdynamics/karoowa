@@ -1,0 +1,11 @@
+# Clippy lint configuration. The actual lint *levels* live in the workspace
+# `[workspace.lints.clippy]` block; this file only tunes specific lints.
+
+# Pin clippy MSRV — anything above this triggers `incompatible-msrv`.
+msrv = "1.85"
+
+# Allow these crate names to appear in module paths (no Hungarian-notation warning).
+allowed-scripts = ["Latin"]
+
+# Common test/example helpers that should not trip clippy::disallowed-names.
+disallowed-names = ["foo", "bar", "baz"]
