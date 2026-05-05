@@ -1,38 +1,80 @@
-# Karoowa multi-stage build.
+# Karoowa container image.
 #
-# Stage 1: Build a statically linked release binary (musl).
-# Stage 2: Copy into a minimal distroless image.
+# Stage 1 (planner)  — analyse Cargo workspace with `cargo-chef` for cache reuse.
+# Stage 2 (builder)  — cook deps, then build the static `karoowa` binary (musl).
+# Stage 3 (runtime)  — copy the binary into a minimal `distroless/cc` image.
 #
-# Usage:
-#   docker build -f docker/Dockerfile -t karoowa/karoowa:dev .
+# Build:
+#   docker build -f docker/Dockerfile -t ghcr.io/mmxxdynamics/karoowa:dev .
 
-# -- Build stage --------------------------------------------------------------
-FROM rust:1.85-alpine AS builder
+ARG RUST_VERSION=1.85
+ARG ALPINE_VERSION=3.20
+ARG DISTROLESS_TAG=nonroot
+
+# OCI labels for the published image.
+ARG VCS_REF=unknown
+ARG BUILD_DATE=unknown
+
+# -- Stage 1: planner ---------------------------------------------------------
+FROM rust:${RUST_VERSION}-alpine${ALPINE_VERSION} AS planner
 
 RUN apk add --no-cache musl-dev clang llvm lld pkgconfig
+RUN cargo install cargo-chef --locked --version ^0.1
 
 WORKDIR /build
 COPY . .
+RUN cargo chef prepare --recipe-path recipe.json
 
-# Build with musl for static linking. RocksDB needs clang/lld.
+# -- Stage 2: builder ---------------------------------------------------------
+FROM rust:${RUST_VERSION}-alpine${ALPINE_VERSION} AS builder
+
+RUN apk add --no-cache musl-dev clang llvm lld pkgconfig
+RUN cargo install cargo-chef --locked --version ^0.1
+
+WORKDIR /build
+
 ENV RUSTFLAGS="-C target-feature=+crt-static"
 ENV CC=clang
 ENV CXX=clang++
 
+# Cook dependencies (cached layer — invalidated only when Cargo.lock changes).
+COPY --from=planner /build/recipe.json recipe.json
+RUN cargo chef cook --release --recipe-path recipe.json --package karoowa
+
+# Build the binary.
+COPY . .
 RUN cargo build --release --package karoowa \
     && strip target/release/karoowa
 
-# -- Runtime stage -------------------------------------------------------------
-FROM alpine:3.20 AS runtime
+# -- Stage 3: runtime ---------------------------------------------------------
+# Distroless `cc` because RocksDB still pulls in libstdc++ on certain configs.
+# If you build a fully static binary, switch to `distroless/static`.
+FROM gcr.io/distroless/cc-debian12:${DISTROLESS_TAG} AS runtime
 
-RUN adduser -D -u 1000 karoowa
+# OCI image labels — picked up by GHCR.
+ARG VCS_REF
+ARG BUILD_DATE
+LABEL org.opencontainers.image.title="karoowa" \
+      org.opencontainers.image.description="Karoowa — agent-native, Rust-based blockchain framework" \
+      org.opencontainers.image.url="https://karoowa.io" \
+      org.opencontainers.image.source="https://github.com/mmxxdynamics/karoowa" \
+      org.opencontainers.image.documentation="https://docs.karoowa.io" \
+      org.opencontainers.image.licenses="Apache-2.0" \
+      org.opencontainers.image.vendor="Karoowa" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.created="${BUILD_DATE}"
 
 COPY --from=builder /build/target/release/karoowa /usr/local/bin/karoowa
 
-USER karoowa
-WORKDIR /home/karoowa
+USER nonroot:nonroot
+WORKDIR /home/nonroot
 
 EXPOSE 8545 30303 9090
+
+# Distroless has no shell, so HEALTHCHECK uses the binary itself. The CLI
+# `health` subcommand is a thin wrapper over `GET /health` on the local RPC port.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD ["karoowa", "health", "--rpc-port", "8545"]
 
 ENTRYPOINT ["karoowa"]
 CMD ["--help"]

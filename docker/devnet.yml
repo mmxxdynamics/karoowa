@@ -1,10 +1,15 @@
 # Karoowa 4-validator devnet with Grafana + Prometheus.
 #
+# DEV ONLY — this file ships hard-coded credentials and unrestricted CORS.
+# DO NOT use as a base for any production deployment. The Grafana admin
+# password and the genesis-validator key files MUST be regenerated for any
+# environment that handles real funds.
+#
 # Usage:
 #   1. Generate keys:    karoowa genesis generate --validators 4 --output docker/genesis.toml
 #   2. Copy key files:   (genesis command creates docker/genesis.validator{0..3}.key)
 #   3. Start:            docker compose -f docker/devnet.yml up -d
-#   4. Grafana:          http://localhost:3000 (admin/admin)
+#   4. Grafana:          http://localhost:3000 (admin/admin) — DEV ONLY
 #   5. Check:            curl http://localhost:8545/health
 
 services:
