@@ -3,7 +3,7 @@
 | Field | Value |
 |-------|-------|
 | Created | 2026-04-11 |
-| Created By | Karoowa team (drafted by Claude) |
+| Created By | Karoowa team |
 | Milestone | M1 (v0.1) — Foundation |
 | Implementation Ticket | N/A — feature PRD covering multiple phases |
 | Reviewers Requested | TBD |

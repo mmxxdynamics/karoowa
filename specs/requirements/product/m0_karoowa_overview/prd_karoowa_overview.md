@@ -3,7 +3,7 @@
 | Field | Value |
 |-------|-------|
 | Created | 2026-04-09 |
-| Created By | Karoowa team (drafted by Claude) |
+| Created By | Karoowa team |
 | Milestone | N/A (overarching PRD — covers v0.1 → v1.0 roadmap) |
 | Implementation Ticket | N/A — milestone-level PRD |
 | Reviewers Requested | TBD |

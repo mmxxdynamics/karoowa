@@ -12,7 +12,7 @@
 
 ## How to use this plan
 
-1. **Each task is sized for one Claude Code session** (1–4 hours of focused work).
+1. **Each task is sized for one focused work session** (1–4 hours).
 2. **Tasks are dependency-ordered.** Don't skip ahead — earlier tasks define the types and traits later tasks depend on.
 3. **Each task has explicit acceptance criteria.** A task is "done" when its acceptance bullets all pass on a fresh clone.
 4. **Phase 1.0 is fully detailed** because it's the immediate next thing. Later phases list tasks at the title level — refine each one into full detail as you start the phase.

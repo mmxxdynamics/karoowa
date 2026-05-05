@@ -13,7 +13,7 @@
 
 ## How to use this plan
 
-1. Each task is sized for one Claude Code session (1–4 hours).
+1. Each task is sized for one focused work session (1–4 hours).
 2. Tasks are dependency-ordered within each phase.
 3. Each task has explicit acceptance criteria.
 4. Cross-reference parent PRD REQ-004 (M4), REQ-005 (M5), REQ-006 (M6).
