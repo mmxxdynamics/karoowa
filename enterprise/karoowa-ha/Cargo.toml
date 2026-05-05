@@ -6,7 +6,8 @@ rust-version.workspace = true
 authors.workspace = true
 repository.workspace = true
 homepage.workspace = true
-license-file = "../../LICENSE-ENTERPRISE.md"
+license = "LicenseRef-Karoowa-Enterprise"
+publish = false
 description = "Karoowa Enterprise — high-availability node clustering via lease-based leader election"
 
 [dependencies]

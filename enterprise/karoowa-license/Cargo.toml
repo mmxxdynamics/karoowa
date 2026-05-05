@@ -6,8 +6,9 @@ rust-version.workspace = true
 authors.workspace = true
 repository.workspace = true
 homepage.workspace = true
-# BSL 1.1 — proprietary until 4-year convert. See LICENSE-ENTERPRISE.md.
-license-file = "../../LICENSE-ENTERPRISE.md"
+# Proprietary — see LICENSE-ENTERPRISE.md. Not published to crates.io.
+license = "LicenseRef-Karoowa-Enterprise"
+publish = false
 description = "Karoowa Enterprise — signed license file parser and LicenseGate impl"
 
 [dependencies]

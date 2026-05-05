@@ -1,13 +1,33 @@
-# Karoowa Enterprise License
+# Karoowa Enterprise — Licensing Notice
 
-**Status:** Placeholder — to be drafted before any enterprise feature ships.
+Code under the `enterprise/` directory of this repository is **proprietary**
+and is **not** covered by the Apache License 2.0 that governs the `core/`
+directory.
 
-Code under the `enterprise/` directory of this repository is proprietary and is **not** covered by the Apache 2.0 license that governs the `core/` directory.
+## Status
 
-Until a formal enterprise license is published:
+The formal Karoowa Enterprise licence text (Business Source Licence 1.1
+with a four-year conversion to Apache 2.0) is in legal review. Until it is
+published in this file, the following terms apply.
 
-- No code under `enterprise/` is licensed for distribution, modification, or use outside of the Karoowa core team.
-- The `enterprise/` directory is intentionally empty in all community builds and public releases.
-- Enterprise features require a signed license file at runtime. See `enterprise/README.md` for details.
+## Until the licence is published
 
-For enterprise licensing inquiries, contact the Karoowa team.
+- All files under `enterprise/` are made available **for reading and review only**.
+- You may **not** distribute, modify, run in production, or otherwise exercise
+  any rights normally granted by an open-source licence.
+- Every crate under `enterprise/` is marked `publish = false` and is **not**
+  pushed to crates.io.
+- Enterprise features require a signed licence file at runtime; see
+  `enterprise/README.md` for details.
+
+## Inquiries
+
+For commercial licensing, evaluation copies, or any other enterprise-licensing
+question, contact: **enterprise@karoowa.io**.
+
+## Why publish the source at all?
+
+Karoowa follows an open-core model. Publishing the enterprise source — even
+under restrictive terms — gives operators full visibility into how their data
+is handled and lets the community audit the proprietary surface area. The
+restriction is on *use*, not on *inspection*.
