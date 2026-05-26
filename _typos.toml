@@ -1,0 +1,22 @@
+# typos-cli configuration
+# https://github.com/crate-ci/typos
+
+[default]
+# typos-cli's CamelCase tokenizer splits "NDAs" into "ND" + "As" and flags
+# "ND" -> "AND". The legitimate cases below need to be allowlisted whole-word
+# via regex so the tokenizer never re-splits them.
+extend-ignore-re = [
+    # Plural of NDA (Non-Disclosure Agreement).
+    "\\bNDAs?\\b",
+    # Count noun for Critical-severity findings ("cannot launch with open Criticals").
+    "\\bCriticals\\b",
+    # Linera — a separate L1 project we reference for devnet design comparison.
+    "\\bLinera\\b",
+]
+
+[files]
+extend-exclude = [
+    "target/",
+    "target-linux/",
+    "Cargo.lock",
+]
