@@ -16,40 +16,17 @@ yanked = "warn"
 #
 # IMPORTANT: every entry in `ignore` below is tracked debt that MUST be
 # resolved before the v1.0 mainnet cut. The current set traces back to
-# four dep upgrades:
+# three dep upgrades still pending:
 #
-#   wasmtime 29 → 44+      (Dependabot PR #14, requires MSRV 1.85 → 1.92 bump)
 #   libp2p 0.56 → newer    (no PR yet; needs ecosystem catch-up)
 #   bincode 1 → 2/3        (Dependabot PR #11)
 #   rustls-webpki bump     (no PR yet)
-#
-# Bumping wasmtime alone clears 16 of these. Tracked in GH issue: TODO link.
 ignore = [
-    # --- wasmtime 29 vulnerabilities + transitive unmaintained crates ---
-    # All clear when karoowa-vm moves to wasmtime >=36.0.7 / 42.0.2 / 43.0.1.
-    "RUSTSEC-2025-0046",  # wasmtime: Host panic with fd_renumber WASIp1
-    "RUSTSEC-2025-0118",  # wasmtime: Unsound API to shared linear memory
-    "RUSTSEC-2026-0006",  # wasmtime: f64.copysign segfault on x86-64
-    "RUSTSEC-2026-0020",  # wasmtime: Guest-controlled WASI resource exhaustion
-    "RUSTSEC-2026-0021",  # wasmtime: panic on excessive wasi:http/types.fields
-    "RUSTSEC-2026-0085",  # wasmtime: panic lifting `flags` component value
-    "RUSTSEC-2026-0086",  # wasmtime: Winch 64-bit tables host data leakage
-    "RUSTSEC-2026-0087",  # wasmtime: f64x2.splat segfault on Cranelift x86-64
-    "RUSTSEC-2026-0088",  # wasmtime: pooling allocator instance data leakage
-    "RUSTSEC-2026-0089",  # wasmtime: Winch table.fill host panic
-    "RUSTSEC-2026-0091",  # wasmtime: component string transcoding OOB write/crash
-    "RUSTSEC-2026-0092",  # wasmtime: misaligned component UTF-16 transcode panic
-    "RUSTSEC-2026-0093",  # wasmtime: component UTF-16 → latin1+utf16 heap OOB read
-    "RUSTSEC-2026-0094",  # wasmtime: Winch table.grow improper return masking
-    "RUSTSEC-2026-0095",  # wasmtime: Winch sandbox-escaping memory access
-    "RUSTSEC-2026-0096",  # wasmtime: aarch64 Cranelift heap-access sandbox escape
-    "RUSTSEC-2025-0057",  # fxhash: unmaintained (via fxprof-processed-profile → wasmtime)
-    "RUSTSEC-2024-0436",  # paste: unmaintained (via wasmtime)
-
     # --- libp2p 0.56 transitive vulnerabilities ---
     "RUSTSEC-2026-0118",  # hickory-proto: NSEC3 unbounded loop (via libp2p-dns)
     "RUSTSEC-2026-0119",  # hickory-proto: O(n²) name compression (via libp2p-dns)
     "RUSTSEC-2026-0105",  # core2: unmaintained, all yanked (via multihash → libp2p-core)
+    "RUSTSEC-2024-0436",  # paste: unmaintained (Linux only: netlink-packet-core → if-watch → libp2p-tcp)
 
     # --- bincode 1 → 2/3 bump (Dependabot PR #11) ---
     "RUSTSEC-2025-0141",  # bincode: unmaintained (v1 series)

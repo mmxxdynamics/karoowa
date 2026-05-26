@@ -8,6 +8,21 @@ v1.0 ships. Pre-1.0 releases may make breaking changes between minor versions.
 
 ## [Unreleased]
 
+### Security
+
+- **MSRV bumped Rust 1.85 → 1.92** to enable `wasmtime 44`, which closes
+  15 RUSTSEC advisories pulled in transitively via `karoowa-vm`:
+  - 14 wasmtime vulnerabilities including two sandbox escapes
+    (RUSTSEC-2026-0095 Winch, RUSTSEC-2026-0096 aarch64 Cranelift),
+    pooling-allocator data leakage (RUSTSEC-2026-0088), component-model
+    transcoding OOB read/write (RUSTSEC-2026-0091/-0092/-0093),
+    f64 segfaults (RUSTSEC-2026-0006/-0087), and others
+    (RUSTSEC-2025-0046, -0118, RUSTSEC-2026-0020/-0021/-0085/-0086/
+    -0089/-0094).
+  - 1 unmaintained transitive (RUSTSEC-2025-0057 fxhash). The
+    RUSTSEC-2024-0436 paste advisory remains tracked because `libp2p-tcp`
+    still pulls paste in on Linux via `if-watch → netlink-packet-core`.
+
 ### Added
 
 - `[workspace.lints]` block in the root `Cargo.toml` propagates a single set
