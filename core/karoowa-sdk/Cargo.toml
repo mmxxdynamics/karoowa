@@ -22,8 +22,8 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]
-karoowa-api = { path = "../karoowa-api" }
-karoowa-network = { path = "../karoowa-network" }
-karoowa-storage = { path = "../karoowa-storage" }
+karoowa-api = { path = "../karoowa-api", version = "0.6.0-dev" }
+karoowa-network = { path = "../karoowa-network", version = "0.6.0-dev" }
+karoowa-storage = { path = "../karoowa-storage", version = "0.6.0-dev" }
 tokio = { workspace = true }
 tempfile = "3"

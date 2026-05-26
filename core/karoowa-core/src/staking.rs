@@ -125,7 +125,7 @@ impl ValidatorSet {
     pub fn active_validators(&self) -> Vec<&ValidatorInfo> {
         let mut active: Vec<&ValidatorInfo> =
             self.validators.values().filter(|v| v.is_active()).collect();
-        active.sort_by(|a, b| b.stake.cmp(&a.stake));
+        active.sort_by_key(|v| std::cmp::Reverse(v.stake));
         active
     }
 
