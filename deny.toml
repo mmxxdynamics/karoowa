@@ -10,7 +10,24 @@ all-features = true
 # RUSTSEC advisories — fail the build by default.
 yanked = "deny"
 ignore = [
-    # Format: "RUSTSEC-XXXX-XXXX",  # justification + revisit date
+    # --- Tracked: wasmtime 29 → 44 bump (Dependabot PR #14) ---
+    # All four roll off when karoowa-vm moves to wasmtime 44+.
+    # Must be resolved before v1.0 release.
+    "RUSTSEC-2025-0046",  # wasmtime: Host panic with fd_renumber WASIp1 (vuln)
+    "RUSTSEC-2025-0047",  # wasmtime: Unsound API access to shared linear memory (vuln)
+    "RUSTSEC-2025-0057",  # fxhash: unmaintained (via fxprof-processed-profile → wasmtime)
+    "RUSTSEC-2024-0436",  # paste: unmaintained (via wasmtime)
+
+    # --- Tracked: libp2p 0.56 → newer (no Dependabot PR yet, needs ecosystem catch-up) ---
+    # Must be resolved before v1.0 release.
+    "RUSTSEC-2026-0118",  # hickory-proto: NSEC3 unbounded loop (vuln — via libp2p-dns)
+    "RUSTSEC-2026-0119",  # hickory-proto: O(n²) name compression (vuln — via libp2p-dns)
+    "RUSTSEC-2026-0105",  # core2: unmaintained, all yanked (via multihash → libp2p-core)
+
+    # --- Tracked: bincode 1 → 2/3 bump (Dependabot PR #11) ---
+    # Direct dep in karoowa-api, karoowa-bridge, karoowa-core, karoowa-storage.
+    # Must be resolved before v1.0 release.
+    "RUSTSEC-2025-0141",  # bincode: unmaintained (v1 series)
 ]
 
 [licenses]
