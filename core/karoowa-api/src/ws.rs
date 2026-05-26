@@ -20,6 +20,11 @@ pub async fn ws_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> 
     ws.on_upgrade(move |socket| handle_socket(socket, state.subscriptions.clone()))
 }
 
+// clippy::collapsible_match suggests moving `socket.send(...).await.is_err()`
+// into match guards, but match guards cannot be async — the suggested
+// rewrite would not compile. The current shape is the simplest form that
+// keeps the await visible at the use site.
+#[allow(clippy::collapsible_match)]
 async fn handle_socket(mut socket: WebSocket, subs: SubscriptionManager) {
     debug!("WebSocket connection established");
 
