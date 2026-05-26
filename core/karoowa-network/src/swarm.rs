@@ -486,12 +486,10 @@ async fn event_loop(
                         swarm.behaviour_mut().kademlia.add_address(&peer_id, Multiaddr::empty());
                     }
 
-                    SwarmEvent::ConnectionClosed { peer_id, num_established, .. } => {
-                        if num_established == 0 {
-                            connected_peers.remove(&peer_id);
-                            peer_count.store(connected_peers.len(), Ordering::Relaxed);
-                            debug!(peer = %peer_id, count = connected_peers.len(), "peer disconnected");
-                        }
+                    SwarmEvent::ConnectionClosed { peer_id, num_established: 0, .. } => {
+                        connected_peers.remove(&peer_id);
+                        peer_count.store(connected_peers.len(), Ordering::Relaxed);
+                        debug!(peer = %peer_id, count = connected_peers.len(), "peer disconnected");
                     }
 
                     SwarmEvent::Behaviour(BehaviourEvent::Gossipsub(
