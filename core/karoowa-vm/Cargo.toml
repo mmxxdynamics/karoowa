@@ -14,7 +14,7 @@ karoowa-core = { workspace = true }
 karoowa-crypto = { workspace = true }
 karoowa-storage = { workspace = true }
 
-wasmtime = "29"
+wasmtime = "44"
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

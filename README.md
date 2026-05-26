@@ -6,7 +6,7 @@
 [![CI](https://github.com/mmxxdynamics/karoowa/actions/workflows/ci.yml/badge.svg)](https://github.com/mmxxdynamics/karoowa/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![License: BSL-1.1 (enterprise)](https://img.shields.io/badge/Enterprise-BSL_1.1-orange.svg)](LICENSE-ENTERPRISE.md)
-[![Rust](https://img.shields.io/badge/Rust-1.85%2B-orange?logo=rust)](https://www.rust-lang.org)
+[![Rust](https://img.shields.io/badge/Rust-1.92%2B-orange?logo=rust)](https://www.rust-lang.org)
 [![docs](https://img.shields.io/badge/docs-mdbook-green)](https://docs.karoowa.io)
 [![Security policy](https://img.shields.io/badge/security-policy-blue)](SECURITY.md)
 
@@ -101,8 +101,10 @@ cargo build --release
 ./target/release/karoowa --version
 ```
 
-**MSRV: Rust 1.85.** The project tracks the **N-2** stable Rust policy: the
-two most recent stables are always supported.
+**MSRV: Rust 1.92.** Bumped from 1.85 to support `wasmtime >= 36`, which
+ships fixes for 16 RUSTSEC advisories (see CHANGELOG). The project tracks
+the **N-2** stable Rust policy: the two most recent stables are always
+supported.
 
 ## Workspace layout
 

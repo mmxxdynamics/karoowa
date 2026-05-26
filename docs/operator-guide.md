@@ -61,7 +61,7 @@ cargo build --release --bin karoowa
 install target/release/karoowa /usr/local/bin/
 ```
 
-The MSRV is **Rust 1.85** (pinned in `rust-toolchain.toml`). `rustup` will
+The MSRV is **Rust 1.92** (pinned in `rust-toolchain.toml`). `rustup` will
 pick it up automatically.
 
 ### 2.3 Via Docker
