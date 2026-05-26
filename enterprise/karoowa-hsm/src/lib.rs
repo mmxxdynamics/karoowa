@@ -131,8 +131,7 @@ pub fn sign_audited<H: HsmProvider + ?Sized>(
             }),
         ),
     };
-    let draft =
-        AuditDraft::new(AuditAction::HsmSign, principal, summary).with_metadata(metadata);
+    let draft = AuditDraft::new(AuditAction::HsmSign, principal, summary).with_metadata(metadata);
     let _ = audit.emit(draft);
     result
 }
@@ -228,11 +227,7 @@ impl SoftHsm {
 
     /// Generate a new ed25519 keypair, add it to the store, and
     /// persist if this SoftHsm was opened from disk.
-    pub fn add_generated_key(
-        &self,
-        id: KeyId,
-        usage: KeyUsage,
-    ) -> Result<KeyHandle, HsmError> {
+    pub fn add_generated_key(&self, id: KeyId, usage: KeyUsage) -> Result<KeyHandle, HsmError> {
         let keypair = Keypair::generate();
         let handle = KeyHandle {
             id: id.clone(),
@@ -273,8 +268,8 @@ impl SoftHsm {
                 })
                 .collect(),
         };
-        let bytes = serde_json::to_vec_pretty(&file)
-            .map_err(|e| HsmError::Malformed(e.to_string()))?;
+        let bytes =
+            serde_json::to_vec_pretty(&file).map_err(|e| HsmError::Malformed(e.to_string()))?;
         fs::write(path, bytes).map_err(HsmError::Io)?;
         Ok(())
     }

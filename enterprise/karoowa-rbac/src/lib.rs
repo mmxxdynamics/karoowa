@@ -183,12 +183,7 @@ impl PolicyEngine {
     /// Convenience: like `check` but also emits an RBAC audit event
     /// to the given log. Use from RPC middleware so every denied
     /// request is traceable.
-    pub fn check_and_audit(
-        &self,
-        principal: &str,
-        action: &str,
-        audit: &AuditLog,
-    ) -> Decision {
+    pub fn check_and_audit(&self, principal: &str, action: &str, audit: &AuditLog) -> Decision {
         let decision = self.check(principal, action);
         let summary = match decision {
             Decision::Allow => format!("allow {action}"),
@@ -422,11 +417,9 @@ mod tests {
     fn check_and_audit_records_decision() {
         let engine = PolicyEngine::new(make_policy());
         let log = AuditLog::new(Box::new(MemorySink::new()));
-        let decision =
-            engine.check_and_audit("alice@karoowa", actions::NODE_ADMIN_RESTART, &log);
+        let decision = engine.check_and_audit("alice@karoowa", actions::NODE_ADMIN_RESTART, &log);
         assert_eq!(decision, Decision::Allow);
-        let denied =
-            engine.check_and_audit("monitor", actions::CONTRACT_DEPLOY, &log);
+        let denied = engine.check_and_audit("monitor", actions::CONTRACT_DEPLOY, &log);
         assert_eq!(denied, Decision::Deny);
         // Both checks advance the log sequence.
         assert_eq!(log.next_sequence(), 2);
