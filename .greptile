@@ -1,0 +1,50 @@
+# Greptile configuration for mmxxdynamics/karoowa
+# https://docs.greptile.com/ai-code-review/setup
+
+# Repository instructions — fed to Greptile alongside each PR diff.
+instructions: |
+  Karoowa is a Rust blockchain framework targeting v1.0 mainnet.
+  Workspace is split: `core/karoowa-*` (Apache-2.0, public) and
+  `enterprise/karoowa-*` (BSL-1.1, publish=false). Cross-crate imports
+  between layers are enforced by `scripts/check-cross-imports.sh`.
+
+  Review priorities (in this order):
+    1. Correctness in consensus / crypto / state transitions — these are
+       money-handling code paths. Flag anything that affects determinism,
+       block validity, signature verification, or genesis allocation.
+    2. Panics on untrusted input (network frames, RPC params, transactions).
+       `unwrap()` / `expect()` on data crossing a trust boundary is a bug.
+    3. New dependencies: flag any crate added that pulls in native-tls,
+       openssl, or unmaintained advisories — see `deny.toml`.
+    4. API stability: we are 0.6.0-dev moving toward v1.0; flag breaking
+       changes to public APIs in `core/` without a changelog entry.
+    5. Rust idioms: prefer `?` over `match err`, `iter()` over indexed loops,
+       structured `tracing` events over `println!`.
+
+  Skip nits on:
+    - Whitespace / line length (rustfmt enforces).
+    - Renaming a local variable for clarity.
+    - Docs typos under `specs/` (drafts).
+
+# Severity threshold for posting comments. "high" | "medium" | "low".
+# "medium" is a reasonable default once tuned.
+severity_threshold: medium
+
+# Paths Greptile should skip during review.
+ignore:
+  - "target/"
+  - "target-linux/"
+  - "Cargo.lock"
+  - "**/*.lock"
+  - "specs/audit/**"
+  - "docs/**/*.svg"
+  - "files/**/*.png"
+  - "files/**/*.jpg"
+
+# Files Greptile should not modify when applying suggestions (it never
+# auto-modifies anyway, but this guards comment scope).
+locked_files:
+  - "LICENSE"
+  - "LICENSE-ENTERPRISE.md"
+  - "SECURITY.md"
+  - "CHANGELOG.md"
