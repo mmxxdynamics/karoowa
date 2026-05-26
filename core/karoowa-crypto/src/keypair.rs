@@ -2,7 +2,7 @@
 //!
 //! Wraps `ed25519-dalek` with Karoowa-specific ergonomics: address derivation,
 //! hex encoding, and serde support. Keys are always generated from OS entropy
-//! via [`OsRng`](rand_core::OsRng) — no hand-rolled randomness.
+//! via [`OsRng`] — no hand-rolled randomness.
 
 use crate::address::Address;
 use ed25519_dalek::{Signer, Verifier};

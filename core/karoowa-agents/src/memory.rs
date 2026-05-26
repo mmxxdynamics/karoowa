@@ -94,7 +94,7 @@ impl MemoryStore for InMemoryStore {
             .filter(|(score, _)| *score > 0)
             .collect();
 
-        scored.sort_by(|a, b| b.0.cmp(&a.0));
+        scored.sort_by_key(|v| std::cmp::Reverse(v.0));
         Ok(scored
             .into_iter()
             .take(top_k)

@@ -284,12 +284,15 @@ impl HaCoordinator {
     pub fn tick_and_audit(&self, now: u64, audit: &AuditLog) -> StateTransition {
         let transition = self.tick(now);
         if !matches!(transition, StateTransition::NoChange) {
-            let summary = format!("ha.{}", match transition {
-                StateTransition::BecameActive => "became_active",
-                StateTransition::BecameStandby => "became_standby",
-                StateTransition::BecameFailed => "became_failed",
-                StateTransition::NoChange => unreachable!(),
-            });
+            let summary = format!(
+                "ha.{}",
+                match transition {
+                    StateTransition::BecameActive => "became_active",
+                    StateTransition::BecameStandby => "became_standby",
+                    StateTransition::BecameFailed => "became_failed",
+                    StateTransition::NoChange => unreachable!(),
+                }
+            );
             let draft = AuditDraft::new(
                 AuditAction::AdminAuth,
                 self.config.node_id.to_string(),

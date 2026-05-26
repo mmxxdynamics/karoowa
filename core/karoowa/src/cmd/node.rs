@@ -197,9 +197,9 @@ fn apply_genesis_allocations(
         return Ok(());
     }
     for entry in allocations {
-        let (addr_str, amount_str) = entry
-            .split_once('=')
-            .ok_or_else(|| format!("invalid --genesis-allocation (expected ADDR=AMOUNT): {entry}"))?;
+        let (addr_str, amount_str) = entry.split_once('=').ok_or_else(|| {
+            format!("invalid --genesis-allocation (expected ADDR=AMOUNT): {entry}")
+        })?;
         let address: Address = addr_str
             .parse()
             .map_err(|e| format!("invalid address in --genesis-allocation {entry}: {e:?}"))?;

@@ -3,7 +3,7 @@
 //! This crate provides the foundational cryptographic types used across the
 //! Karoowa workspace:
 //!
-//! - [`Hash`] — 32-byte hash value, plus [`sha3_256`] and [`blake3_hash`] functions.
+//! - [`struct@Hash`] — 32-byte hash value, plus [`sha3_256`] and [`blake3_hash`] functions.
 //! - [`Address`] — 20-byte account address derived from a public key.
 //! - [`Keypair`] — Ed25519 signing keypair with OS-entropy generation.
 //! - [`Signature`] — Ed25519 signature with signer verification.

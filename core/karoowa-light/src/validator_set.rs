@@ -3,7 +3,7 @@
 //! The light client tracks the active validator set externally rather than
 //! reading it from the block header (which would require a breaking change).
 //! When the validator set changes on-chain, the light client must be told
-//! about it via [`LightClient::update_validator_set`].
+//! about it via [`crate::LightClient::update_validator_set`].
 
 use karoowa_crypto::Address;
 use serde::{Deserialize, Serialize};

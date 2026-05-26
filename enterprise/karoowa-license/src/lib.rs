@@ -47,8 +47,8 @@ pub use error::LicenseError;
 
 /// Well-known vendor public key. In production this is set at build
 /// time via a build script that embeds the vendor's real key. For
-/// tests, it defaults to all-zeros so test code can override it via
-/// [`SignedLicenseGate::with_vendor_pubkey`].
+/// tests, it defaults to all-zeros so test code can pass an explicit
+/// vendor pubkey via [`SignedLicenseGate::from_bytes`].
 pub const KAROOWA_VENDOR_PUBKEY: [u8; 32] = [0u8; 32];
 
 /// The canonical payload signed by the vendor.

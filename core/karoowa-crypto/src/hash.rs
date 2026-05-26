@@ -1,6 +1,6 @@
 //! Fixed-size hash type and hashing functions.
 //!
-//! [`Hash`] is a 32-byte value used everywhere in Karoowa: block hashes,
+//! [`struct@Hash`] is a 32-byte value used everywhere in Karoowa: block hashes,
 //! transaction hashes, Merkle nodes, state roots. Two hash functions are
 //! provided:
 //!
@@ -102,7 +102,7 @@ impl std::str::FromStr for Hash {
     }
 }
 
-/// Errors when parsing a [`Hash`].
+/// Errors when parsing a [`struct@Hash`].
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum HashError {
     /// The hex string was not valid hex.

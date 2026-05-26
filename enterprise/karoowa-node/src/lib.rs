@@ -186,8 +186,8 @@ impl EnterpriseContext {
                 if !license.is_feature_enabled("hsm") {
                     return Err(EnterpriseError::FeatureNotLicensed("hsm".into()));
                 }
-                let softhsm = SoftHsm::load(store_path)
-                    .map_err(|e| EnterpriseError::Hsm(e.to_string()))?;
+                let softhsm =
+                    SoftHsm::load(store_path).map_err(|e| EnterpriseError::Hsm(e.to_string()))?;
                 Some(Arc::new(softhsm) as Arc<dyn HsmProvider>)
             }
         };
@@ -268,8 +268,15 @@ impl EnterpriseContext {
             .hsm
             .as_ref()
             .ok_or(EnterpriseError::FeatureNotLicensed("hsm".into()))?;
-        karoowa_hsm::sign_audited(hsm.as_ref(), key_id, message, &self.node_id, reason, &self.audit)
-            .map_err(|e| EnterpriseError::Hsm(e.to_string()))
+        karoowa_hsm::sign_audited(
+            hsm.as_ref(),
+            key_id,
+            message,
+            &self.node_id,
+            reason,
+            &self.audit,
+        )
+        .map_err(|e| EnterpriseError::Hsm(e.to_string()))
     }
 
     /// Drive the HA coordinator one step. Returns whether the
@@ -300,8 +307,8 @@ impl EnterpriseContext {
 mod tests {
     use super::*;
     use karoowa_audit_log::FileSink;
-    use karoowa_ha::NodeId;
     use karoowa_crypto::Keypair;
+    use karoowa_ha::NodeId;
     use karoowa_license::{LicenseFile, LicensePayload};
 
     fn hex_encode(bytes: &[u8]) -> String {
@@ -333,8 +340,7 @@ mod tests {
     /// tests — it still boots and still enforces deny-all RBAC.
     #[test]
     fn oss_context_boots_with_deny_all() {
-        let ctx =
-            EnterpriseContext::load(EnterpriseConfig::new(), 1_500_000, "node-a").unwrap();
+        let ctx = EnterpriseContext::load(EnterpriseConfig::new(), 1_500_000, "node-a").unwrap();
         assert_eq!(ctx.license_info().edition, karoowa_core::Edition::Oss);
         assert!(!ctx.feature_enabled("rbac"));
         // Deny-all: no principals registered.
@@ -349,8 +355,7 @@ mod tests {
         let license_path = tmp.path().join("license.json");
         let policy_path = tmp.path().join("rbac.json");
 
-        let (license_bytes, vendor_pk) =
-            signed_license_bytes(vec!["rbac", "audit-log"]);
+        let (license_bytes, vendor_pk) = signed_license_bytes(vec!["rbac", "audit-log"]);
         std::fs::write(&license_path, &license_bytes).unwrap();
 
         // Write a minimal policy.
@@ -366,8 +371,7 @@ mod tests {
         // license gate directly — the real loader uses the
         // compiled-in placeholder and would reject. We validate
         // the downstream wiring through a custom bootstrap helper.
-        let gate =
-            SignedLicenseGate::from_bytes(&license_bytes, &vendor_pk, 1_500_000).unwrap();
+        let gate = SignedLicenseGate::from_bytes(&license_bytes, &vendor_pk, 1_500_000).unwrap();
         let license: Arc<dyn LicenseGate> = Arc::new(gate);
         let audit = Arc::new(AuditLog::new(Box::new(MemorySink::new())));
         let rbac_policy = Policy::load(&policy_path).unwrap();
@@ -466,8 +470,7 @@ mod tests {
 
     #[test]
     fn shutdown_emits_audit_event() {
-        let ctx =
-            EnterpriseContext::load(EnterpriseConfig::new(), 1_500_000, "node-a").unwrap();
+        let ctx = EnterpriseContext::load(EnterpriseConfig::new(), 1_500_000, "node-a").unwrap();
         let before = ctx.audit.next_sequence();
         ctx.shutdown();
         assert_eq!(ctx.audit.next_sequence(), before + 1);
