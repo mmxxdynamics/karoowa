@@ -11,7 +11,6 @@ ignore = [
     # --- libp2p 0.56 transitive vulnerabilities ---
     "RUSTSEC-2026-0118",  # hickory-proto: NSEC3 unbounded loop (via libp2p-dns)
     "RUSTSEC-2026-0119",  # hickory-proto: O(n²) name compression (via libp2p-dns)
-    "RUSTSEC-2026-0105",  # core2: unmaintained, all yanked (via multihash → libp2p-core)
     "RUSTSEC-2024-0436",  # paste: unmaintained (Linux only: netlink-packet-core → if-watch → libp2p-tcp)
 
     # --- bincode 1 → 2/3 bump (Dependabot PR #11) ---
