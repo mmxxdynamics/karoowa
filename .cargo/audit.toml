@@ -15,9 +15,4 @@ ignore = [
 
     # --- bincode 1 → 2/3 bump (Dependabot PR #11) ---
     "RUSTSEC-2025-0141",  # bincode: unmaintained (v1 series)
-
-    # --- rustls-webpki bump ---
-    "RUSTSEC-2026-0098",  # rustls-webpki: name constraints for URI names accepted
-    "RUSTSEC-2026-0099",  # rustls-webpki: wildcard name constraints accepted
-    "RUSTSEC-2026-0104",  # rustls-webpki: panic in CRL parsing
 ]

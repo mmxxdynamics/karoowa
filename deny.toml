@@ -14,11 +14,10 @@ yanked = "deny"
 #
 # IMPORTANT: every entry in `ignore` below is tracked debt that MUST be
 # resolved before the v1.0 mainnet cut. The current set traces back to
-# three dep upgrades still pending:
+# two dep upgrades still pending:
 #
 #   libp2p 0.56 → newer    (no PR yet; needs ecosystem catch-up)
-#   bincode 1 → 2/3        (Dependabot PR #11)
-#   rustls-webpki bump     (no PR yet)
+#   bincode 1 → 2/3        (Dependabot PR #11; wire-format care needed)
 ignore = [
     # --- libp2p 0.56 transitive vulnerabilities ---
     # libp2p 0.56 is currently the latest published; hickory-proto and paste
@@ -30,11 +29,6 @@ ignore = [
 
     # --- bincode 1 → 2/3 bump (Dependabot PR #11) ---
     "RUSTSEC-2025-0141",  # bincode: unmaintained (v1 series)
-
-    # --- rustls-webpki bump ---
-    "RUSTSEC-2026-0098",  # rustls-webpki: name constraints for URI names accepted
-    "RUSTSEC-2026-0099",  # rustls-webpki: wildcard name constraints accepted
-    "RUSTSEC-2026-0104",  # rustls-webpki: panic in CRL parsing
 ]
 
 [licenses]
