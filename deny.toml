@@ -8,11 +8,9 @@ all-features = true
 
 [advisories]
 # RUSTSEC advisories — fail the build by default.
-# `yanked = "warn"` because the only yanked crate in our graph today is
-# `core2 0.4.0` (transitively via multihash → libp2p), which is also
-# ignored by RUSTSEC-2026-0105 below. Tighten back to "deny" once libp2p
-# is bumped to a version that drops the multihash → core2 chain.
-yanked = "warn"
+# `yanked = "deny"` — restored after `multihash 0.19.5` dropped its
+# core2 dependency (the only yanked crate in our graph).
+yanked = "deny"
 #
 # IMPORTANT: every entry in `ignore` below is tracked debt that MUST be
 # resolved before the v1.0 mainnet cut. The current set traces back to
@@ -23,9 +21,11 @@ yanked = "warn"
 #   rustls-webpki bump     (no PR yet)
 ignore = [
     # --- libp2p 0.56 transitive vulnerabilities ---
+    # libp2p 0.56 is currently the latest published; hickory-proto and paste
+    # advisories are blocked behind libp2p's version pins on libp2p-mdns and
+    # netlink-packet-core respectively.
     "RUSTSEC-2026-0118",  # hickory-proto: NSEC3 unbounded loop (via libp2p-dns)
     "RUSTSEC-2026-0119",  # hickory-proto: O(n²) name compression (via libp2p-dns)
-    "RUSTSEC-2026-0105",  # core2: unmaintained, all yanked (via multihash → libp2p-core)
     "RUSTSEC-2024-0436",  # paste: unmaintained (Linux only: netlink-packet-core → if-watch → libp2p-tcp)
 
     # --- bincode 1 → 2/3 bump (Dependabot PR #11) ---
