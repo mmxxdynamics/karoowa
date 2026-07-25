@@ -153,24 +153,47 @@ fn handle_get_block_by_hash(state: &AppState, req: &JsonRpcRequest) -> JsonRpcRe
 }
 
 fn handle_get_transaction_by_hash(state: &AppState, req: &JsonRpcRequest) -> JsonRpcResponse {
-    // Search pending pool first, then receipts (which means it was mined).
-    // For M1, we just check storage for a receipt and return the tx hash info.
+    // Resolve via the tx index (tx_hash → block hash, maintained by
+    // `put_block`), then return the full transaction body plus its inclusion
+    // coordinates. Execution receipts are a separate, later concern
+    // (`kw_getTransactionReceipt`); inclusion is what this method attests.
     let hash = match parse_hash_param(&req.params, 0) {
         Ok(h) => h,
         Err(e) => return JsonRpcResponse::error(req.id.clone(), INVALID_PARAMS, e),
     };
-    match state.storage.get_receipt_by_tx_hash(&hash) {
-        Ok(Some(receipt)) => JsonRpcResponse::success(
+    let block_hash = match state.storage.get_block_hash_by_tx(&hash) {
+        Ok(Some(bh)) => bh,
+        Ok(None) => return JsonRpcResponse::success(req.id.clone(), Value::Null),
+        Err(e) => return JsonRpcResponse::error(req.id.clone(), INTERNAL_ERROR, e.to_string()),
+    };
+    let block = match state.storage.get_block_by_hash(&block_hash) {
+        Ok(Some(b)) => b,
+        Ok(None) => {
+            return JsonRpcResponse::error(
+                req.id.clone(),
+                INTERNAL_ERROR,
+                format!("tx index points at missing block {block_hash}"),
+            )
+        }
+        Err(e) => return JsonRpcResponse::error(req.id.clone(), INTERNAL_ERROR, e.to_string()),
+    };
+    let Some(tx) = block.transactions.iter().find(|tx| tx.hash() == hash) else {
+        return JsonRpcResponse::error(
             req.id.clone(),
-            serde_json::json!({
-                "tx_hash": hash.to_string(),
-                "status": format!("{:?}", receipt.status),
-                "gas_used": receipt.gas_used,
-            }),
-        ),
-        Ok(None) => JsonRpcResponse::success(req.id.clone(), Value::Null),
-        Err(e) => JsonRpcResponse::error(req.id.clone(), INTERNAL_ERROR, e.to_string()),
-    }
+            INTERNAL_ERROR,
+            format!("tx index inconsistent: {hash} not in block {block_hash}"),
+        );
+    };
+    JsonRpcResponse::success(
+        req.id.clone(),
+        serde_json::json!({
+            "tx_hash": hash.to_string(),
+            "status": "included",
+            "block_hash": block_hash.to_string(),
+            "block_height": block.height(),
+            "transaction": tx,
+        }),
+    )
 }
 
 fn handle_get_transaction_receipt(state: &AppState, req: &JsonRpcRequest) -> JsonRpcResponse {

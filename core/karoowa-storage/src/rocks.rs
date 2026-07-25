@@ -169,6 +169,18 @@ impl BlockStore for RocksStorage {
             None => Ok(None),
         }
     }
+
+    fn get_block_hash_by_tx(&self, tx_hash: &Hash) -> Result<Option<Hash>, StorageError> {
+        match self.db.get_cf(self.cf(CF_TX_INDEX), tx_hash.as_bytes())? {
+            Some(hash_bytes) => Ok(Some(Hash::from_bytes(
+                hash_bytes
+                    .as_slice()
+                    .try_into()
+                    .map_err(|_| StorageError::Consistency("invalid hash in tx index".into()))?,
+            ))),
+            None => Ok(None),
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
