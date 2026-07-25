@@ -6,7 +6,7 @@
 
 use async_trait::async_trait;
 use karoowa_core::{Block, BlockHeader, Transaction};
-use karoowa_crypto::Address;
+use karoowa_crypto::{Address, Keypair};
 
 use crate::error::ConsensusError;
 
@@ -39,15 +39,16 @@ pub trait ConsensusEngine: Send + Sync {
     /// Propose a new block from the given transactions.
     ///
     /// Called by the block producer when this node is the leader. The engine
-    /// fills in consensus-specific header fields and returns a complete block
-    /// ready for broadcast.
+    /// builds the block and signs the header as the proposer (using
+    /// `proposer_keypair`, whose address must be the current leader), returning
+    /// a complete, authenticated block ready for broadcast.
     ///
     /// Returns `Err(ConsensusError::NotLeader)` if this node is not the
     /// current leader.
     async fn propose_block(
         &self,
         state: &ChainState,
-        proposer: &Address,
+        proposer_keypair: &Keypair,
         transactions: Vec<Transaction>,
     ) -> Result<Block, ConsensusError>;
 

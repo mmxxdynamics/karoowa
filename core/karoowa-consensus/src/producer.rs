@@ -6,7 +6,7 @@
 //! it, and broadcasts it via a channel.
 
 use karoowa_core::{Block, BlockHeader, Transaction};
-use karoowa_crypto::Address;
+use karoowa_crypto::Keypair;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc;
@@ -22,8 +22,9 @@ pub type BlockReceiver = mpsc::Receiver<Block>;
 
 /// Configuration for the block producer.
 pub struct ProducerConfig {
-    /// This node's validator address.
-    pub validator_address: Address,
+    /// This node's validator signing key. Its address must be in the
+    /// validator set; produced blocks are signed with it.
+    pub validator_keypair: Arc<Keypair>,
     /// Target block interval.
     pub block_interval: Duration,
 }
@@ -87,7 +88,7 @@ impl<E: ConsensusEngine + 'static> BlockProducer<E> {
 
         info!(
             engine = self.engine.name(),
-            validator = %self.config.validator_address,
+            validator = %self.config.validator_keypair.address(),
             interval_ms = self.config.block_interval.as_millis() as u64,
             "block producer started"
         );
@@ -125,7 +126,7 @@ impl<E: ConsensusEngine + 'static> BlockProducer<E> {
         };
 
         let leader = self.engine.current_leader(&state);
-        if leader != self.config.validator_address {
+        if leader != self.config.validator_keypair.address() {
             return Ok(None);
         }
 
@@ -140,7 +141,7 @@ impl<E: ConsensusEngine + 'static> BlockProducer<E> {
 
         let block = self
             .engine
-            .propose_block(&state, &self.config.validator_address, txs)
+            .propose_block(&state, &self.config.validator_keypair, txs)
             .await?;
 
         // Update the head.
@@ -256,7 +257,7 @@ fn now_secs() -> u64 {
 mod tests {
     use super::*;
     use crate::poa::{PoAConfig, PoAEngine};
-    use karoowa_crypto::{Hash, Keypair};
+    use karoowa_crypto::{Address, Hash, Keypair};
 
     fn test_setup() -> (Arc<PoAEngine>, ProducerConfig, BlockHeader, Vec<Keypair>) {
         let keypairs: Vec<Keypair> = (0..4u8).map(|i| Keypair::from_seed(&[i + 1; 32])).collect();
@@ -279,9 +280,9 @@ mod tests {
             consensus_data: vec![], // simplified for genesis
         };
 
-        // Height 1 leader is validators[1].
+        // Height 1 leader is validators[1] = keypair with seed [2; 32].
         let producer_config = ProducerConfig {
-            validator_address: validators[1],
+            validator_keypair: Arc::new(Keypair::from_seed(&[2u8; 32])),
             block_interval: Duration::from_millis(50),
         };
 

@@ -99,6 +99,15 @@ impl LightClient {
             });
         }
 
+        // The proposer must have signed the header. Membership alone is not
+        // authentication — validator addresses are public, so without this a
+        // forged header naming a real validator would be accepted.
+        header.verify_proposer_signature().map_err(|_| {
+            LightClientError::InvalidProposerSignature {
+                height: header.height,
+            }
+        })?;
+
         debug!(
             height = header.height,
             hash = %header.hash(),
@@ -183,17 +192,28 @@ mod tests {
         Keypair::from_seed(&[seed; 32]).address()
     }
 
-    fn make_header(height: u64, parent: Hash, state_root: Hash, proposer: Address) -> BlockHeader {
-        BlockHeader {
+    fn kp(seed: u8) -> Keypair {
+        Keypair::from_seed(&[seed; 32])
+    }
+
+    fn make_header(
+        height: u64,
+        parent: Hash,
+        state_root: Hash,
+        proposer_kp: &Keypair,
+    ) -> BlockHeader {
+        let mut header = BlockHeader {
             parent_hash: parent,
             state_root,
             tx_root: Hash::ZERO,
             receipt_root: Hash::ZERO,
             height,
             timestamp: 1700000000 + height,
-            proposer,
+            proposer: proposer_kp.address(),
             consensus_data: vec![],
-        }
+        };
+        header.sign_as_proposer(proposer_kp);
+        header
     }
 
     fn test_validators() -> ValidatorSetView {
@@ -202,7 +222,7 @@ mod tests {
 
     #[test]
     fn checkpoint_only() {
-        let checkpoint = make_header(0, Hash::ZERO, Hash::ZERO, addr(1));
+        let checkpoint = make_header(0, Hash::ZERO, Hash::ZERO, &kp(1));
         let client = LightClient::new(checkpoint.clone(), test_validators()).unwrap();
 
         assert_eq!(client.len(), 1);
@@ -213,7 +233,7 @@ mod tests {
 
     #[test]
     fn empty_validator_set_rejected() {
-        let checkpoint = make_header(0, Hash::ZERO, Hash::ZERO, addr(1));
+        let checkpoint = make_header(0, Hash::ZERO, Hash::ZERO, &kp(1));
         let empty = ValidatorSetView::new(vec![], 0);
         let result = LightClient::new(checkpoint, empty);
         assert!(matches!(result, Err(LightClientError::EmptyValidatorSet)));
@@ -221,10 +241,10 @@ mod tests {
 
     #[test]
     fn append_valid_header() {
-        let checkpoint = make_header(0, Hash::ZERO, Hash::ZERO, addr(1));
+        let checkpoint = make_header(0, Hash::ZERO, Hash::ZERO, &kp(1));
         let mut client = LightClient::new(checkpoint.clone(), test_validators()).unwrap();
 
-        let next = make_header(1, checkpoint.hash(), sha3_256(b"state-1"), addr(2));
+        let next = make_header(1, checkpoint.hash(), sha3_256(b"state-1"), &kp(2));
         client.append_header(next.clone()).unwrap();
 
         assert_eq!(client.len(), 2);
@@ -234,10 +254,10 @@ mod tests {
 
     #[test]
     fn reject_wrong_parent_hash() {
-        let checkpoint = make_header(0, Hash::ZERO, Hash::ZERO, addr(1));
+        let checkpoint = make_header(0, Hash::ZERO, Hash::ZERO, &kp(1));
         let mut client = LightClient::new(checkpoint, test_validators()).unwrap();
 
-        let bad = make_header(1, sha3_256(b"wrong"), Hash::ZERO, addr(2));
+        let bad = make_header(1, sha3_256(b"wrong"), Hash::ZERO, &kp(2));
         let result = client.append_header(bad);
         assert!(matches!(
             result,
@@ -247,11 +267,11 @@ mod tests {
 
     #[test]
     fn reject_wrong_height() {
-        let checkpoint = make_header(0, Hash::ZERO, Hash::ZERO, addr(1));
+        let checkpoint = make_header(0, Hash::ZERO, Hash::ZERO, &kp(1));
         let mut client = LightClient::new(checkpoint.clone(), test_validators()).unwrap();
 
         // Skip from 0 directly to 5 — wrong.
-        let skipped = make_header(5, checkpoint.hash(), Hash::ZERO, addr(2));
+        let skipped = make_header(5, checkpoint.hash(), Hash::ZERO, &kp(2));
         let result = client.append_header(skipped);
         assert!(matches!(
             result,
@@ -261,11 +281,11 @@ mod tests {
 
     #[test]
     fn reject_unknown_proposer() {
-        let checkpoint = make_header(0, Hash::ZERO, Hash::ZERO, addr(1));
+        let checkpoint = make_header(0, Hash::ZERO, Hash::ZERO, &kp(1));
         let mut client = LightClient::new(checkpoint.clone(), test_validators()).unwrap();
 
-        let intruder = addr(99); // not in the validator set
-        let bad = make_header(1, checkpoint.hash(), Hash::ZERO, intruder);
+        let intruder = kp(99); // not in the validator set
+        let bad = make_header(1, checkpoint.hash(), Hash::ZERO, &intruder);
         let result = client.append_header(bad);
         assert!(matches!(
             result,
@@ -274,14 +294,33 @@ mod tests {
     }
 
     #[test]
+    fn reject_forged_header_signature() {
+        // C2: a header naming a real validator but NOT validly signed by that
+        // validator is rejected. Previously membership alone was accepted, so a
+        // forged header (any peer could set proposer to a known validator) was
+        // treated as authentic.
+        let checkpoint = make_header(0, Hash::ZERO, Hash::ZERO, &kp(1));
+        let mut client = LightClient::new(checkpoint.clone(), test_validators()).unwrap();
+
+        // Signed by validator 2, but claims to be proposed by validator 3.
+        let mut forged = make_header(1, checkpoint.hash(), sha3_256(b"evil"), &kp(2));
+        forged.proposer = addr(3);
+        let result = client.append_header(forged);
+        assert!(matches!(
+            result,
+            Err(LightClientError::InvalidProposerSignature { .. })
+        ));
+    }
+
+    #[test]
     fn append_chain_of_headers() {
-        let checkpoint = make_header(0, Hash::ZERO, Hash::ZERO, addr(1));
+        let checkpoint = make_header(0, Hash::ZERO, Hash::ZERO, &kp(1));
         let mut client = LightClient::new(checkpoint.clone(), test_validators()).unwrap();
 
         let mut parent = checkpoint;
         for i in 1..=10u64 {
-            let proposer = addr((i as u8 % 4) + 1);
-            let next = make_header(i, parent.hash(), sha3_256(&i.to_be_bytes()), proposer);
+            let proposer = kp((i as u8 % 4) + 1);
+            let next = make_header(i, parent.hash(), sha3_256(&i.to_be_bytes()), &proposer);
             client.append_header(next.clone()).unwrap();
             parent = next;
         }
@@ -299,10 +338,10 @@ mod tests {
         let state_root = trie.root();
 
         // Build a header committing to that state root.
-        let checkpoint = make_header(0, Hash::ZERO, Hash::ZERO, addr(1));
+        let checkpoint = make_header(0, Hash::ZERO, Hash::ZERO, &kp(1));
         let mut client = LightClient::new(checkpoint.clone(), test_validators()).unwrap();
 
-        let h1 = make_header(1, checkpoint.hash(), state_root, addr(2));
+        let h1 = make_header(1, checkpoint.hash(), state_root, &kp(2));
         client.append_header(h1).unwrap();
 
         // Get a Merkle proof for "alice" and verify it through the light client.
@@ -317,11 +356,11 @@ mod tests {
         trie.insert(b"alice", b"balance:1000".to_vec());
         let state_root = trie.root();
 
-        let checkpoint = make_header(0, Hash::ZERO, Hash::ZERO, addr(1));
+        let checkpoint = make_header(0, Hash::ZERO, Hash::ZERO, &kp(1));
         let mut client = LightClient::new(checkpoint.clone(), test_validators()).unwrap();
 
         // Header committing to the REAL state root.
-        let h1 = make_header(1, checkpoint.hash(), state_root, addr(2));
+        let h1 = make_header(1, checkpoint.hash(), state_root, &kp(2));
         client.append_header(h1).unwrap();
 
         // Build a DIFFERENT trie and try to forge a proof.
@@ -336,7 +375,7 @@ mod tests {
 
     #[test]
     fn verify_proof_at_unknown_height_fails() {
-        let checkpoint = make_header(0, Hash::ZERO, Hash::ZERO, addr(1));
+        let checkpoint = make_header(0, Hash::ZERO, Hash::ZERO, &kp(1));
         let client = LightClient::new(checkpoint, test_validators()).unwrap();
 
         let trie = SparseMerkleTrie::new();
@@ -347,7 +386,7 @@ mod tests {
 
     #[test]
     fn update_validator_set() {
-        let checkpoint = make_header(0, Hash::ZERO, Hash::ZERO, addr(1));
+        let checkpoint = make_header(0, Hash::ZERO, Hash::ZERO, &kp(1));
         let mut client = LightClient::new(checkpoint, test_validators()).unwrap();
 
         // Replace with a new set.
@@ -360,7 +399,7 @@ mod tests {
 
     #[test]
     fn reject_empty_validator_update() {
-        let checkpoint = make_header(0, Hash::ZERO, Hash::ZERO, addr(1));
+        let checkpoint = make_header(0, Hash::ZERO, Hash::ZERO, &kp(1));
         let mut client = LightClient::new(checkpoint, test_validators()).unwrap();
 
         let empty = ValidatorSetView::new(vec![], 0);

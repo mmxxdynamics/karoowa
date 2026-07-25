@@ -188,7 +188,7 @@ pub async fn run(args: NodeArgs) -> Result<(), Box<dyn std::error::Error>> {
             };
 
             let producer_config = ProducerConfig {
-                validator_address,
+                validator_keypair: Arc::new(keypair),
                 block_interval: Duration::from_secs(args.block_time),
             };
 
