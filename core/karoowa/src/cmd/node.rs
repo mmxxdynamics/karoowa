@@ -118,7 +118,7 @@ pub async fn run(args: NodeArgs) -> Result<(), Box<dyn std::error::Error>> {
         bind_addr: SocketAddr::from(([127, 0, 0, 1], args.rpc_port)),
         chain_id: 1,
     };
-    let (api_addr, _mempool, _subscriptions, _api_handle) =
+    let (api_addr, mempool, _subscriptions, _api_handle) =
         start_server(server_config, Arc::clone(&storage), network.clone()).await?;
 
     info!(addr = %api_addr, "API server started");
@@ -161,6 +161,34 @@ pub async fn run(args: NodeArgs) -> Result<(), Box<dyn std::error::Error>> {
 
             let (producer, mut block_rx) =
                 BlockProducer::new(engine, producer_config, genesis_header);
+
+            // Bridge the RPC mempool into the producer's pending pool.
+            // `kw_sendRawTransaction` admits into the shared mempool; without
+            // this drain the producer only ever proposes empty blocks and
+            // submitted transactions sit in the pool forever. Move semantics
+            // (drain + remove) so a tx is never proposed twice. On a
+            // non-leader node drained txs are simply dropped from the local
+            // pool view — they were already broadcast to the network on
+            // admission, so the leader still sees them.
+            let pending_sender = producer.pending_tx_sender();
+            let mempool_handle = mempool.clone();
+            tokio::spawn(async move {
+                const DRAIN_BATCH: usize = 1_000;
+                let mut tick =
+                    tokio::time::interval(Duration::from_millis(500));
+                loop {
+                    tick.tick().await;
+                    let txs = mempool_handle.pending_sorted(DRAIN_BATCH).await;
+                    if txs.is_empty() {
+                        continue;
+                    }
+                    let hashes: Vec<_> = txs.iter().map(|tx| tx.hash()).collect();
+                    mempool_handle.remove_mined(&hashes).await;
+                    for tx in txs {
+                        pending_sender.submit(tx).await;
+                    }
+                }
+            });
 
             let storage_handle = Arc::clone(&storage);
             let network_handle = network.clone();
