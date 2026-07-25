@@ -243,3 +243,20 @@ fn soak_write_and_read_many_blocks() {
         assert_eq!(block.height(), i as u64);
     }
 }
+
+#[test]
+fn tx_index_resolves_containing_block() {
+    let (db, _dir) = open_temp_db();
+    let kp = test_keypair();
+    let tx = make_tx(&kp, 0);
+    let tx_hash = tx.hash();
+    let block = make_block(3, Hash::ZERO, vec![tx]);
+
+    db.put_block(&block).unwrap();
+
+    let resolved = db.get_block_hash_by_tx(&tx_hash).unwrap();
+    assert_eq!(resolved, Some(block.hash()));
+
+    let unknown = Hash::from_bytes([7u8; 32]);
+    assert_eq!(db.get_block_hash_by_tx(&unknown).unwrap(), None);
+}

@@ -25,6 +25,11 @@ pub trait BlockStore: Send + Sync {
 
     /// Return the height of the latest block, or `None` if empty.
     fn head_height(&self) -> Result<Option<u64>, StorageError>;
+
+    /// Resolve the hash of the block containing the given transaction, via
+    /// the tx index maintained by `put_block`. `None` if the transaction has
+    /// not been included in any stored block.
+    fn get_block_hash_by_tx(&self, tx_hash: &Hash) -> Result<Option<Hash>, StorageError>;
 }
 
 /// Persistent storage for account state.
