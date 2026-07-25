@@ -33,13 +33,16 @@ impl MerkleTree {
         }
 
         if leaves.len() == 1 {
+            // Tag even the single leaf, so a root can never equal a raw leaf
+            // value (which would let an empty proof validate an arbitrary leaf).
             return MerkleTree {
-                nodes: vec![leaves[0]],
+                nodes: vec![leaf_hash(&leaves[0])],
                 leaf_count: 1,
             };
         }
 
-        let mut current_level: Vec<Hash> = leaves.to_vec();
+        // Domain-separate leaves from internal nodes (second-preimage defence).
+        let mut current_level: Vec<Hash> = leaves.iter().map(leaf_hash).collect();
         let mut all_nodes: Vec<Hash> = current_level.clone();
 
         while current_level.len() > 1 {
@@ -142,7 +145,9 @@ pub struct ProofEntry {
 ///
 /// Returns `true` if the proof is valid.
 pub fn verify_proof(root: &Hash, leaf: &Hash, proof: &MerkleProof) -> bool {
-    let mut current = *leaf;
+    // Tag the claimed leaf the same way the tree did, so a raw internal-node
+    // value can't be passed off as a leaf.
+    let mut current = leaf_hash(leaf);
 
     for entry in &proof.siblings {
         if entry.is_left {
@@ -155,9 +160,28 @@ pub fn verify_proof(root: &Hash, leaf: &Hash, proof: &MerkleProof) -> bool {
     current == *root
 }
 
-/// Hash two child nodes into a parent node.
+/// Domain-separation tag for leaf hashes (RFC 6962-style).
+const LEAF_PREFIX: u8 = 0x00;
+/// Domain-separation tag for internal-node hashes.
+const NODE_PREFIX: u8 = 0x01;
+
+/// Hash a leaf with the leaf domain-separation tag.
+///
+/// Prefixing leaves with `0x00` and internal nodes with `0x01` prevents the
+/// Merkle second-preimage attack: without it, a 64-byte value equal to the
+/// concatenation of two child hashes could be presented as a leaf, forging
+/// inclusion. See RFC 6962 §2.1.
+fn leaf_hash(leaf: &Hash) -> Hash {
+    let mut combined = Vec::with_capacity(33);
+    combined.push(LEAF_PREFIX);
+    combined.extend_from_slice(leaf.as_bytes());
+    sha3_256(&combined)
+}
+
+/// Hash two child nodes into a parent node (with the node domain-separation tag).
 fn hash_pair(left: &Hash, right: &Hash) -> Hash {
-    let mut combined = Vec::with_capacity(64);
+    let mut combined = Vec::with_capacity(65);
+    combined.push(NODE_PREFIX);
     combined.extend_from_slice(left.as_bytes());
     combined.extend_from_slice(right.as_bytes());
     sha3_256(&combined)
@@ -182,7 +206,9 @@ mod tests {
     fn single_leaf_tree() {
         let l = leaf(1);
         let tree = MerkleTree::from_leaves(&[l]);
-        assert_eq!(tree.root(), l);
+        // Root is the tagged leaf, never the raw leaf value.
+        assert_eq!(tree.root(), leaf_hash(&l));
+        assert_ne!(tree.root(), l);
         assert_eq!(tree.leaf_count(), 1);
     }
 
@@ -191,7 +217,7 @@ mod tests {
         let l0 = leaf(0);
         let l1 = leaf(1);
         let tree = MerkleTree::from_leaves(&[l0, l1]);
-        let expected_root = hash_pair(&l0, &l1);
+        let expected_root = hash_pair(&leaf_hash(&l0), &leaf_hash(&l1));
         assert_eq!(tree.root(), expected_root);
     }
 
@@ -200,9 +226,10 @@ mod tests {
         let leaves: Vec<Hash> = (0..3).map(leaf).collect();
         let tree = MerkleTree::from_leaves(&leaves);
         assert_eq!(tree.leaf_count(), 3);
-        // With padding: [l0, l1, l2, l2] → [h01, h22] → root
-        let h01 = hash_pair(&leaves[0], &leaves[1]);
-        let h22 = hash_pair(&leaves[2], &leaves[2]);
+        // With padding: [l0, l1, l2, l2] tagged → [h01, h22] → root
+        let lh: Vec<Hash> = leaves.iter().map(leaf_hash).collect();
+        let h01 = hash_pair(&lh[0], &lh[1]);
+        let h22 = hash_pair(&lh[2], &lh[2]);
         let expected_root = hash_pair(&h01, &h22);
         assert_eq!(tree.root(), expected_root);
     }
@@ -211,10 +238,27 @@ mod tests {
     fn four_leaf_tree() {
         let leaves: Vec<Hash> = (0..4).map(leaf).collect();
         let tree = MerkleTree::from_leaves(&leaves);
-        let h01 = hash_pair(&leaves[0], &leaves[1]);
-        let h23 = hash_pair(&leaves[2], &leaves[3]);
+        let lh: Vec<Hash> = leaves.iter().map(leaf_hash).collect();
+        let h01 = hash_pair(&lh[0], &lh[1]);
+        let h23 = hash_pair(&lh[2], &lh[3]);
         let expected_root = hash_pair(&h01, &h23);
         assert_eq!(tree.root(), expected_root);
+    }
+
+    #[test]
+    fn second_preimage_resistance() {
+        // A raw internal-node value must not validate as a leaf with an empty
+        // proof, and a root must not equal any raw leaf.
+        let leaves: Vec<Hash> = (0..2).map(leaf).collect();
+        let tree = MerkleTree::from_leaves(&leaves);
+        let root = tree.root();
+        // The untagged concatenation an attacker would forge as a "leaf".
+        let mut forged_input = Vec::new();
+        forged_input.extend_from_slice(leaves[0].as_bytes());
+        forged_input.extend_from_slice(leaves[1].as_bytes());
+        let forged = sha3_256(&forged_input);
+        let empty_proof = MerkleProof { leaf_index: 0, siblings: vec![] };
+        assert!(!verify_proof(&root, &forged, &empty_proof));
     }
 
     #[test]
