@@ -130,10 +130,22 @@ impl<E: ConsensusEngine + 'static> BlockProducer<E> {
             return Ok(None);
         }
 
-        // Drain pending transactions.
+        // Drain pending transactions, up to the protocol block limits.
+        // Anything over the cap stays queued for the next block, so a burst
+        // spreads across blocks instead of producing one unbounded block.
         let txs = {
             let mut pending = self.pending_txs.lock().await;
-            std::mem::take(&mut *pending)
+            let mut count = 0usize;
+            let mut body_bytes = 0usize;
+            while count < pending.len() && count < karoowa_core::MAX_BLOCK_TXS {
+                let size = pending[count].encoded_size();
+                if body_bytes + size > karoowa_core::MAX_BLOCK_BODY_BYTES {
+                    break;
+                }
+                body_bytes += size;
+                count += 1;
+            }
+            pending.drain(..count).collect::<Vec<_>>()
         };
 
         // Drop the head lock before the async propose call.
