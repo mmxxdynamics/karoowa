@@ -5,7 +5,7 @@
 //! via [`OsRng`] — no hand-rolled randomness.
 
 use crate::address::Address;
-use ed25519_dalek::{Signer, Verifier};
+use ed25519_dalek::Signer;
 use rand_core::OsRng;
 use std::fmt;
 
@@ -98,8 +98,12 @@ impl Signature {
     ///
     /// Returns `Ok(())` if the signature is valid, `Err` otherwise.
     pub fn verify(&self, message: &[u8]) -> Result<(), SignatureError> {
+        // `verify_strict` rejects non-canonical `S` and small-order / torsion
+        // components that the permissive `verify` accepts. Without it, a valid
+        // signature is not unique (malleable), breaking any dedup / replay-cache
+        // / signature-as-identity scheme keyed on the signature bytes.
         self.public_key
-            .verify(message, &self.inner)
+            .verify_strict(message, &self.inner)
             .map_err(|_| SignatureError::Invalid)
     }
 
