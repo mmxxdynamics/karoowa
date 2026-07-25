@@ -245,6 +245,12 @@ impl ConsensusEngine for BFTEngine {
             ));
         }
 
+        // 5b. Every transaction must carry a valid signature bound to its
+        //     `from` address (defense-in-depth against a Byzantine proposer).
+        block.verify_transaction_signatures().map_err(|(i, e)| {
+            ConsensusError::InvalidBlock(format!("transaction {i} has an invalid signature: {e:?}"))
+        })?;
+
         // 6. Consensus data.
         let expected_data = Self::make_consensus_data(block.height(), 0, &block.header.proposer);
         if block.header.consensus_data != expected_data {

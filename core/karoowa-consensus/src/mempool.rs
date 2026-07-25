@@ -95,6 +95,13 @@ impl Mempool {
     ///
     /// Returns `Ok(())` if accepted, or `Err(RejectReason)` if rejected.
     pub fn insert(&mut self, tx: Transaction) -> Result<(), RejectReason> {
+        // 0. Authenticate the transaction BEFORE any pool work. `tx.from` is
+        //    an attacker-settable field; without this check any account can be
+        //    impersonated. `verify_signature` also binds `from` to the signer's
+        //    public key, so a valid signature proves the sender authorized it.
+        tx.verify_signature()
+            .map_err(|e| RejectReason::Invalid(format!("invalid signature: {e:?}")))?;
+
         let hash = tx.hash();
         let sender = tx.from;
         let nonce = tx.nonce;
@@ -252,6 +259,29 @@ mod tests {
         assert_eq!(pool.len(), 1);
         assert!(pool.contains(&hash));
         assert!(pool.get(&hash).is_some());
+    }
+
+    #[test]
+    fn reject_forged_signature() {
+        // C1 gate: a transaction with a corrupted signature must be rejected.
+        let mut pool = Mempool::new(MempoolConfig::default());
+        let kp = Keypair::from_seed(&[1u8; 32]);
+        let mut tx = make_tx(&kp, 0, 10);
+        tx.signature[0] ^= 0xff;
+        assert!(matches!(pool.insert(tx), Err(RejectReason::Invalid(_))));
+        assert_eq!(pool.len(), 0);
+    }
+
+    #[test]
+    fn reject_impersonated_sender() {
+        // C1 gate: a transaction whose `from` does not match the signer's key
+        // must be rejected — otherwise `from` is a free impersonation field.
+        let mut pool = Mempool::new(MempoolConfig::default());
+        let kp = Keypair::from_seed(&[1u8; 32]);
+        let mut tx = make_tx(&kp, 0, 10);
+        tx.from = Address::from_public_key(&[9u8; 32]);
+        assert!(matches!(pool.insert(tx), Err(RejectReason::Invalid(_))));
+        assert_eq!(pool.len(), 0);
     }
 
     #[test]

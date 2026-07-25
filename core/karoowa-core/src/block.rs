@@ -76,6 +76,21 @@ impl Block {
     pub fn validate_tx_root(&self) -> bool {
         self.header.tx_root == self.compute_tx_root()
     }
+
+    /// Verify the signature of every transaction in the block body.
+    ///
+    /// Each transaction must carry a valid signature whose signer key derives
+    /// the transaction's `from` address. This is the block-validation half of
+    /// transaction authentication: a Byzantine proposer must not be able to
+    /// include unsigned or forged transactions even if they bypass the mempool.
+    ///
+    /// Returns the index of the first transaction with an invalid signature.
+    pub fn verify_transaction_signatures(&self) -> Result<(), (usize, karoowa_crypto::SignatureError)> {
+        for (i, tx) in self.transactions.iter().enumerate() {
+            tx.verify_signature().map_err(|e| (i, e))?;
+        }
+        Ok(())
+    }
 }
 
 /// Builder for constructing blocks (used by the consensus engine / proposer).

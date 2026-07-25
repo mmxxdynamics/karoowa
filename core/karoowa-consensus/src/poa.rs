@@ -174,6 +174,12 @@ impl ConsensusEngine for PoAEngine {
             ));
         }
 
+        // 5b. Every transaction must carry a valid signature bound to its
+        //     `from` address (defense-in-depth against a Byzantine proposer).
+        block.verify_transaction_signatures().map_err(|(i, e)| {
+            ConsensusError::InvalidBlock(format!("transaction {i} has an invalid signature: {e:?}"))
+        })?;
+
         // 6. Consensus data must be correct.
         Self::verify_consensus_data(block, state)?;
 
