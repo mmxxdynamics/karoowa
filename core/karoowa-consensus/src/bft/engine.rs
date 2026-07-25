@@ -6,7 +6,7 @@
 
 use async_trait::async_trait;
 use karoowa_core::{Block, BlockBuilder, Transaction};
-use karoowa_crypto::{sha3_256, Address};
+use karoowa_crypto::{Address, Keypair};
 use tracing::debug;
 
 use super::types::{BFTConfig, QuorumCertificate, RoundState, Step, Vote, VoteType};
@@ -97,14 +97,16 @@ impl BFTEngine {
     pub async fn run_round(
         &self,
         state: &ChainState,
-        proposer: &Address,
+        proposer_keypair: &Keypair,
         transactions: Vec<Transaction>,
     ) -> Result<(Block, QuorumCertificate), ConsensusError> {
         let height = state.next_height;
         let round = 0u32;
 
         // 1. Propose
-        let block = self.propose_block(state, proposer, transactions).await?;
+        let block = self
+            .propose_block(state, proposer_keypair, transactions)
+            .await?;
         let block_hash = block.hash();
 
         // 2. All validators prevote
@@ -145,15 +147,6 @@ impl BFTEngine {
         Ok((block, qc))
     }
 
-    /// Build consensus data for a BFT block.
-    fn make_consensus_data(height: u64, round: u32, proposer: &Address) -> Vec<u8> {
-        let mut input = Vec::new();
-        input.extend_from_slice(b"bft");
-        input.extend_from_slice(&height.to_be_bytes());
-        input.extend_from_slice(&round.to_be_bytes());
-        input.extend_from_slice(proposer.as_bytes());
-        sha3_256(&input).as_bytes().to_vec()
-    }
 }
 
 #[async_trait]
@@ -173,25 +166,26 @@ impl ConsensusEngine for BFTEngine {
     async fn propose_block(
         &self,
         state: &ChainState,
-        proposer: &Address,
+        proposer_keypair: &Keypair,
         transactions: Vec<Transaction>,
     ) -> Result<Block, ConsensusError> {
+        let proposer = proposer_keypair.address();
         let expected = self.config.proposer(state.next_height, 0);
-        if *proposer != expected {
+        if proposer != expected {
             return Err(ConsensusError::NotLeader);
         }
 
-        let consensus_data = Self::make_consensus_data(state.next_height, 0, proposer);
-
-        let block = BlockBuilder::new(
+        let mut block = BlockBuilder::new(
             state.head.hash(),
             state.next_height,
             state.timestamp,
-            *proposer,
+            proposer,
         )
-        .consensus_data(consensus_data)
         .transactions(transactions)
         .build();
+
+        // Authenticate the block: the proposer signs the header.
+        block.header.sign_as_proposer(proposer_keypair);
 
         debug!(
             height = block.height(),
@@ -257,13 +251,10 @@ impl ConsensusEngine for BFTEngine {
                 ))
             })?;
 
-        // 7. Consensus data.
-        let expected_data = Self::make_consensus_data(block.height(), 0, &block.header.proposer);
-        if block.header.consensus_data != expected_data {
-            return Err(ConsensusError::InvalidBlock(
-                "consensus_data mismatch".into(),
-            ));
-        }
+        // 7. The proposer must have signed the block.
+        block.header.verify_proposer_signature().map_err(|e| {
+            ConsensusError::InvalidBlock(format!("invalid proposer signature: {e:?}"))
+        })?;
 
         Ok(())
     }
@@ -277,6 +268,15 @@ mod tests {
 
     fn addr(seed: u8) -> Address {
         Keypair::from_seed(&[seed; 32]).address()
+    }
+
+    /// The signing keypair for a validator address (test helper; validators
+    /// are seeds 1..=4).
+    fn keypair_for(a: Address) -> Keypair {
+        (1u8..=4)
+            .map(|n| Keypair::from_seed(&[n; 32]))
+            .find(|kp| kp.address() == a)
+            .expect("no validator keypair for address")
     }
 
     fn test_config() -> BFTConfig {
@@ -338,7 +338,7 @@ mod tests {
         forged.from = Address::from_public_key(&[7u8; 32]);
 
         let block = engine
-            .propose_block(&state, &leader, vec![forged])
+            .propose_block(&state, &keypair_for(leader), vec![forged])
             .await
             .unwrap();
 
@@ -352,7 +352,7 @@ mod tests {
         let leader = engine.current_leader(&state);
 
         let block = engine
-            .propose_block(&state, &leader, vec![make_tx(0)])
+            .propose_block(&state, &keypair_for(leader), vec![make_tx(0)])
             .await
             .unwrap();
 
@@ -365,7 +365,7 @@ mod tests {
         let engine = BFTEngine::new(test_config()).unwrap();
         let state = genesis_state();
 
-        let wrong = addr(4); // not the leader for height 1
+        let wrong = keypair_for(addr(4)); // not the leader for height 1
         let result = engine.propose_block(&state, &wrong, vec![]).await;
         assert!(matches!(result, Err(ConsensusError::NotLeader)));
     }
@@ -377,7 +377,7 @@ mod tests {
         let leader = engine.current_leader(&state);
 
         let (block, qc) = engine
-            .run_round(&state, &leader, vec![make_tx(0)])
+            .run_round(&state, &keypair_for(leader), vec![make_tx(0)])
             .await
             .unwrap();
 
@@ -402,7 +402,7 @@ mod tests {
             let leader = engine.current_leader(&state);
 
             let (block, qc) = engine
-                .run_round(&state, &leader, vec![make_tx(h)])
+                .run_round(&state, &keypair_for(leader), vec![make_tx(h)])
                 .await
                 .unwrap();
 
@@ -419,7 +419,7 @@ mod tests {
         let state = genesis_state();
         let leader = engine.current_leader(&state);
 
-        let mut block = engine.propose_block(&state, &leader, vec![]).await.unwrap();
+        let mut block = engine.propose_block(&state, &keypair_for(leader), vec![]).await.unwrap();
 
         block.header.proposer = addr(4); // wrong proposer
         assert!(engine.validate_block(&block, &state).is_err());

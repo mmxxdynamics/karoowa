@@ -21,6 +21,10 @@ pub enum LightClientError {
     #[error("proposer is not a known validator at height {height}")]
     UnknownProposer { height: u64 },
 
+    /// The header is not validly signed by its claimed proposer.
+    #[error("invalid proposer signature at height {height}")]
+    InvalidProposerSignature { height: u64 },
+
     /// Tried to query a height that hasn't been synced yet.
     #[error("header at height {0} not in light client store")]
     HeaderNotFound(u64),
