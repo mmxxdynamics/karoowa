@@ -27,7 +27,10 @@ pub struct ServerConfig {
 impl Default for ServerConfig {
     fn default() -> Self {
         ServerConfig {
-            bind_addr: SocketAddr::from(([0, 0, 0, 0], 8545)),
+            // Loopback by default: the RPC is unauthenticated, so 0.0.0.0 would
+            // expose node control and mempool to the network. Opt in explicitly
+            // to bind a public interface (and add auth first).
+            bind_addr: SocketAddr::from(([127, 0, 0, 1], 8545)),
             chain_id: 1,
         }
     }

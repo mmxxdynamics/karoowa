@@ -111,7 +111,11 @@ pub async fn run(args: NodeArgs) -> Result<(), Box<dyn std::error::Error>> {
 
     // Start API server.
     let server_config = ServerConfig {
-        bind_addr: SocketAddr::from(([0, 0, 0, 0], args.rpc_port)),
+        // Bind the RPC to loopback by default. The RPC is currently
+        // unauthenticated, so binding 0.0.0.0 would expose node control /
+        // mempool to the network (the "open 8545" node-takeover class).
+        // Exposing it externally must be a deliberate, auth-gated choice.
+        bind_addr: SocketAddr::from(([127, 0, 0, 1], args.rpc_port)),
         chain_id: 1,
     };
     let (api_addr, _mempool, _subscriptions, _api_handle) =
