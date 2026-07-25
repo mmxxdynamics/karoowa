@@ -21,7 +21,7 @@ pub mod state;
 pub mod transaction;
 
 // Re-exports for convenience.
-pub use block::{Block, BlockBuilder, BlockHeader};
+pub use block::{Block, BlockBuilder, BlockHeader, MAX_BLOCK_BODY_BYTES, MAX_BLOCK_TXS, MAX_TX_BYTES};
 pub use config::{ChainConfig, GenesisConfig, GenesisValidationError};
 pub use eip1559::{compute_base_fee, AccessList, Eip1559Transaction, TransactionEnvelope};
 pub use error::{CoreError, CryptoError};

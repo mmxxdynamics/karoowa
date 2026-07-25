@@ -188,7 +188,13 @@ impl ConsensusEngine for PoSEngine {
                 ))
             })?;
 
-        // 7. The proposer must have signed the block.
+        // 7. Protocol size limits: cap the per-block cost a proposer can
+        //    impose on every validator and light client.
+        block
+            .validate_size_limits()
+            .map_err(ConsensusError::InvalidBlock)?;
+
+        // 8. The proposer must have signed the block.
         block.header.verify_proposer_signature().map_err(|e| {
             ConsensusError::InvalidBlock(format!("invalid proposer signature: {e:?}"))
         })?;

@@ -114,6 +114,26 @@ impl BlockHeader {
     }
 }
 
+/// Maximum number of transactions a valid block may contain.
+///
+/// Together with [`MAX_BLOCK_BODY_BYTES`] this caps the cost a proposer can
+/// impose on every validator and light client per block (propagation,
+/// signature verification, storage). Without a cap, a single proposer could
+/// emit unbounded blocks — a consensus-layer DoS. Enforced by every engine's
+/// `validate_block` and respected by the producer when draining pending txs.
+pub const MAX_BLOCK_TXS: usize = 256;
+
+/// Maximum total encoded size (bincode) of a block's transaction body.
+pub const MAX_BLOCK_BODY_BYTES: usize = 1_048_576; // 1 MiB
+
+/// Maximum encoded size of a single transaction.
+///
+/// Kept well below [`MAX_BLOCK_BODY_BYTES`] so any admissible transaction
+/// always fits in a block — otherwise an oversized tx could sit at the front
+/// of the pending queue and wedge block building. Enforced at mempool
+/// admission and implied by the block body limit.
+pub const MAX_TX_BYTES: usize = 131_072; // 128 KiB
+
 /// A full block: header + transactions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Block {
@@ -171,6 +191,24 @@ impl Block {
     pub fn verify_transaction_signatures(&self) -> Result<(), (usize, SignatureError)> {
         for (index, tx) in self.transactions.iter().enumerate() {
             tx.verify_signature().map_err(|e| (index, e))?;
+        }
+        Ok(())
+    }
+
+    /// Validate the block against the protocol size limits
+    /// ([`MAX_BLOCK_TXS`], [`MAX_BLOCK_BODY_BYTES`]).
+    pub fn validate_size_limits(&self) -> Result<(), String> {
+        if self.transactions.len() > MAX_BLOCK_TXS {
+            return Err(format!(
+                "block has {} transactions, limit is {MAX_BLOCK_TXS}",
+                self.transactions.len()
+            ));
+        }
+        let body_bytes: usize = self.transactions.iter().map(Transaction::encoded_size).sum();
+        if body_bytes > MAX_BLOCK_BODY_BYTES {
+            return Err(format!(
+                "block body is {body_bytes} bytes, limit is {MAX_BLOCK_BODY_BYTES}"
+            ));
         }
         Ok(())
     }
@@ -427,5 +465,42 @@ mod tests {
         let deserialized: Block = serde_json::from_str(&json).unwrap();
         assert_eq!(block.hash(), deserialized.hash());
         assert!(deserialized.validate_tx_root());
+    }
+
+    #[test]
+    fn size_limits_accept_a_normal_block() {
+        let kp = Keypair::from_seed(&[7u8; 32]);
+        let block = make_block(vec![make_tx(&kp, 0), make_tx(&kp, 1)]);
+        assert!(block.validate_size_limits().is_ok());
+    }
+
+    #[test]
+    fn size_limits_reject_too_many_transactions() {
+        let kp = Keypair::from_seed(&[7u8; 32]);
+        let txs: Vec<Transaction> = (0..=MAX_BLOCK_TXS as u64).map(|n| make_tx(&kp, n)).collect();
+        let block = make_block(txs);
+        let err = block.validate_size_limits().unwrap_err();
+        assert!(err.contains("transactions"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn size_limits_reject_oversized_body() {
+        // A handful of txs, each carrying a data payload large enough that the
+        // combined body exceeds MAX_BLOCK_BODY_BYTES while staying under the
+        // tx-count limit.
+        let kp = Keypair::from_seed(&[7u8; 32]);
+        let big = vec![0u8; MAX_TX_BYTES - 1_024];
+        let txs: Vec<Transaction> = (0..10)
+            .map(|n| {
+                Transaction::sign_raw(
+                    &kp,
+                    Some(Address::from_public_key(&[2u8; 32])),
+                    0, n, 1, 100_000, big.clone(), 1,
+                )
+            })
+            .collect();
+        let block = make_block(txs);
+        let err = block.validate_size_limits().unwrap_err();
+        assert!(err.contains("bytes"), "unexpected error: {err}");
     }
 }
