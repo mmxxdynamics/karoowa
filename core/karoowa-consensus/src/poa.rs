@@ -9,7 +9,7 @@
 
 use async_trait::async_trait;
 use karoowa_core::{Block, BlockBuilder, Transaction};
-use karoowa_crypto::{sha3_256, Address};
+use karoowa_crypto::{Address, Keypair};
 use tracing::debug;
 
 use crate::engine::{ChainState, ConsensusEngine};
@@ -53,29 +53,6 @@ impl PoAEngine {
         self.config.validators[idx]
     }
 
-    /// Build consensus data for a PoA block.
-    ///
-    /// In PoA the consensus data is minimal: just a hash of
-    /// `"poa" || height || proposer` to make each block's consensus_data
-    /// unique and verifiable.
-    fn make_consensus_data(height: u64, proposer: &Address) -> Vec<u8> {
-        let mut input = Vec::new();
-        input.extend_from_slice(b"poa");
-        input.extend_from_slice(&height.to_be_bytes());
-        input.extend_from_slice(proposer.as_bytes());
-        sha3_256(&input).as_bytes().to_vec()
-    }
-
-    /// Verify consensus data matches what we'd produce for the given params.
-    fn verify_consensus_data(block: &Block, _state: &ChainState) -> Result<(), ConsensusError> {
-        let expected = Self::make_consensus_data(block.height(), &block.header.proposer);
-        if block.header.consensus_data != expected {
-            return Err(ConsensusError::InvalidBlock(
-                "consensus_data mismatch".into(),
-            ));
-        }
-        Ok(())
-    }
 }
 
 #[async_trait]
@@ -95,11 +72,12 @@ impl ConsensusEngine for PoAEngine {
     async fn propose_block(
         &self,
         state: &ChainState,
-        proposer: &Address,
+        proposer_keypair: &Keypair,
         transactions: Vec<Transaction>,
     ) -> Result<Block, ConsensusError> {
+        let proposer = proposer_keypair.address();
         let expected_leader = self.current_leader(state);
-        if *proposer != expected_leader {
+        if proposer != expected_leader {
             debug!(
                 proposer = %proposer,
                 expected = %expected_leader,
@@ -109,17 +87,17 @@ impl ConsensusEngine for PoAEngine {
             return Err(ConsensusError::NotLeader);
         }
 
-        let consensus_data = Self::make_consensus_data(state.next_height, proposer);
-
-        let block = BlockBuilder::new(
+        let mut block = BlockBuilder::new(
             state.head.hash(),
             state.next_height,
             state.timestamp,
-            *proposer,
+            proposer,
         )
-        .consensus_data(consensus_data)
         .transactions(transactions)
         .build();
+
+        // Authenticate the block: the proposer signs the header.
+        block.header.sign_as_proposer(proposer_keypair);
 
         debug!(
             height = block.height(),
@@ -180,8 +158,11 @@ impl ConsensusEngine for PoAEngine {
             ConsensusError::InvalidBlock(format!("transaction {i} has an invalid signature: {e:?}"))
         })?;
 
-        // 6. Consensus data must be correct.
-        Self::verify_consensus_data(block, state)?;
+        // 6. The proposer must have signed the block (real authentication,
+        //    replacing the old public consensus_data tag).
+        block.header.verify_proposer_signature().map_err(|e| {
+            ConsensusError::InvalidBlock(format!("invalid proposer signature: {e:?}"))
+        })?;
 
         Ok(())
     }
@@ -191,15 +172,22 @@ impl ConsensusEngine for PoAEngine {
 mod tests {
     use super::*;
     use karoowa_core::{BlockHeader, Transaction};
-    use karoowa_crypto::{Hash, Keypair};
+    use karoowa_crypto::{sha3_256, Hash, Keypair};
+
+    fn validator_keypairs() -> Vec<Keypair> {
+        (0..4u8).map(|i| Keypair::from_seed(&[i + 1; 32])).collect()
+    }
 
     fn test_validators() -> Vec<Address> {
-        (0..4u8)
-            .map(|i| {
-                let kp = Keypair::from_seed(&[i + 1; 32]);
-                kp.address()
-            })
-            .collect()
+        validator_keypairs().iter().map(|kp| kp.address()).collect()
+    }
+
+    /// The signing keypair for a validator address (test helper).
+    fn keypair_for(addr: Address) -> Keypair {
+        validator_keypairs()
+            .into_iter()
+            .find(|kp| kp.address() == addr)
+            .expect("no keypair for validator address")
     }
 
     fn test_engine() -> PoAEngine {
@@ -219,7 +207,7 @@ mod tests {
             height: 0,
             timestamp: 1700000000,
             proposer,
-            consensus_data: PoAEngine::make_consensus_data(0, &proposer),
+            consensus_data: vec![], // genesis is trusted, not signature-verified
         };
         let state = ChainState {
             head: header.clone(),
@@ -277,7 +265,7 @@ mod tests {
         let leader = engine.current_leader(&state);
 
         let block = engine
-            .propose_block(&state, &leader, vec![make_tx(0)])
+            .propose_block(&state, &keypair_for(leader), vec![make_tx(0)])
             .await
             .unwrap();
 
@@ -291,7 +279,7 @@ mod tests {
     async fn propose_block_not_leader_fails() {
         let engine = test_engine();
         let (state, _) = genesis_state();
-        let wrong = Address::from_public_key(&[99u8; 32]);
+        let wrong = Keypair::from_seed(&[99u8; 32]); // address not in the validator set
 
         let result = engine.propose_block(&state, &wrong, vec![]).await;
 
@@ -305,7 +293,7 @@ mod tests {
         let leader = engine.current_leader(&state);
 
         let block = engine
-            .propose_block(&state, &leader, vec![make_tx(0)])
+            .propose_block(&state, &keypair_for(leader), vec![make_tx(0)])
             .await
             .unwrap();
 
@@ -318,7 +306,7 @@ mod tests {
         let (state, _) = genesis_state();
         let leader = engine.current_leader(&state);
 
-        let mut block = engine.propose_block(&state, &leader, vec![]).await.unwrap();
+        let mut block = engine.propose_block(&state, &keypair_for(leader), vec![]).await.unwrap();
 
         // Tamper: change proposer to a different validator.
         block.header.proposer = test_validators()[2];
@@ -333,7 +321,7 @@ mod tests {
         let (state, _) = genesis_state();
         let leader = engine.current_leader(&state);
 
-        let mut block = engine.propose_block(&state, &leader, vec![]).await.unwrap();
+        let mut block = engine.propose_block(&state, &keypair_for(leader), vec![]).await.unwrap();
 
         block.header.parent_hash = sha3_256(b"wrong");
 
@@ -347,7 +335,7 @@ mod tests {
         let (state, _) = genesis_state();
         let leader = engine.current_leader(&state);
 
-        let mut block = engine.propose_block(&state, &leader, vec![]).await.unwrap();
+        let mut block = engine.propose_block(&state, &keypair_for(leader), vec![]).await.unwrap();
 
         block.header.height = 999;
 
@@ -362,7 +350,7 @@ mod tests {
         let leader = engine.current_leader(&state);
 
         let mut block = engine
-            .propose_block(&state, &leader, vec![make_tx(0)])
+            .propose_block(&state, &keypair_for(leader), vec![make_tx(0)])
             .await
             .unwrap();
 
@@ -393,7 +381,7 @@ mod tests {
             height: 0,
             timestamp: 1700000000,
             proposer: genesis_proposer,
-            consensus_data: PoAEngine::make_consensus_data(0, &genesis_proposer),
+            consensus_data: vec![], // genesis is trusted, not signature-verified
         };
 
         let mut current_head = genesis_header;
@@ -408,7 +396,7 @@ mod tests {
             assert_eq!(leader, validators[(h as usize) % 4]);
 
             let block = engine
-                .propose_block(&state, &leader, vec![make_tx(h)])
+                .propose_block(&state, &keypair_for(leader), vec![make_tx(h)])
                 .await
                 .unwrap();
 

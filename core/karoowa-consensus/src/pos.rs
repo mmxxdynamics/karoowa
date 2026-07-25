@@ -6,7 +6,7 @@
 
 use async_trait::async_trait;
 use karoowa_core::{Block, BlockBuilder, Transaction, ValidatorSet};
-use karoowa_crypto::{sha3_256, Address};
+use karoowa_crypto::{Address, Keypair};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::debug;
@@ -39,15 +39,6 @@ impl PoSEngine {
         Arc::clone(&self.validator_set)
     }
 
-    /// Build consensus data for a PoS block.
-    fn make_consensus_data(height: u64, proposer: &Address, total_stake: u64) -> Vec<u8> {
-        let mut input = Vec::new();
-        input.extend_from_slice(b"pos");
-        input.extend_from_slice(&height.to_be_bytes());
-        input.extend_from_slice(proposer.as_bytes());
-        input.extend_from_slice(&total_stake.to_be_bytes());
-        sha3_256(&input).as_bytes().to_vec()
-    }
 }
 
 #[async_trait]
@@ -81,9 +72,10 @@ impl ConsensusEngine for PoSEngine {
     async fn propose_block(
         &self,
         state: &ChainState,
-        proposer: &Address,
+        proposer_keypair: &Keypair,
         transactions: Vec<Transaction>,
     ) -> Result<Block, ConsensusError> {
+        let proposer = proposer_keypair.address();
         let vs = self.validator_set.read().await;
 
         let expected_leader =
@@ -92,28 +84,27 @@ impl ConsensusEngine for PoSEngine {
                     "no active validators".into(),
                 ))?;
 
-        if *proposer != expected_leader {
+        if proposer != expected_leader {
             return Err(ConsensusError::NotLeader);
         }
 
-        let total_stake = vs.total_active_stake();
-        let consensus_data = Self::make_consensus_data(state.next_height, proposer, total_stake);
-
         drop(vs);
 
-        let block = BlockBuilder::new(
+        let mut block = BlockBuilder::new(
             state.head.hash(),
             state.next_height,
             state.timestamp,
-            *proposer,
+            proposer,
         )
-        .consensus_data(consensus_data)
         .transactions(transactions)
         .build();
 
+        // Authenticate the block: the proposer signs the header.
+        block.header.sign_as_proposer(proposer_keypair);
+
         // Distribute reward to proposer.
         let mut vs = self.validator_set.write().await;
-        vs.distribute_reward(proposer);
+        vs.distribute_reward(&proposer);
 
         debug!(
             height = block.height(),
@@ -192,15 +183,10 @@ impl ConsensusEngine for PoSEngine {
             ConsensusError::InvalidBlock(format!("transaction {i} has an invalid signature: {e:?}"))
         })?;
 
-        // 6. Verify consensus data.
-        let total_stake = vs.total_active_stake();
-        let expected_data =
-            Self::make_consensus_data(block.height(), &block.header.proposer, total_stake);
-        if block.header.consensus_data != expected_data {
-            return Err(ConsensusError::InvalidBlock(
-                "consensus_data mismatch".into(),
-            ));
-        }
+        // 6. The proposer must have signed the block.
+        block.header.verify_proposer_signature().map_err(|e| {
+            ConsensusError::InvalidBlock(format!("invalid proposer signature: {e:?}"))
+        })?;
 
         Ok(())
     }
@@ -214,6 +200,16 @@ mod tests {
 
     fn addr(seed: u8) -> Address {
         Keypair::from_seed(&[seed; 32]).address()
+    }
+
+    /// The signing keypair for a validator address (test helper; validators
+    /// are seeds 1 and 2).
+    fn keypair_for(a: Address) -> Keypair {
+        [1u8, 2u8]
+            .into_iter()
+            .map(|n| Keypair::from_seed(&[n; 32]))
+            .find(|kp| kp.address() == a)
+            .expect("no validator keypair for address")
     }
 
     fn test_validator_set() -> ValidatorSet {
@@ -297,7 +293,7 @@ mod tests {
         let leader = engine.current_leader(&state);
 
         let block = engine
-            .propose_block(&state, &leader, vec![make_tx(0)])
+            .propose_block(&state, &keypair_for(leader), vec![make_tx(0)])
             .await
             .unwrap();
 
@@ -313,8 +309,8 @@ mod tests {
         let state = genesis_state(&vs);
         let leader = engine.current_leader(&state);
 
-        // Pick the other validator.
-        let wrong = if leader == addr(1) { addr(2) } else { addr(1) };
+        // Pick the other validator's keypair (not the leader for this height).
+        let wrong = if leader == addr(1) { keypair_for(addr(2)) } else { keypair_for(addr(1)) };
         let result = engine.propose_block(&state, &wrong, vec![]).await;
         assert!(matches!(result, Err(ConsensusError::NotLeader)));
     }
@@ -326,7 +322,7 @@ mod tests {
         let state = genesis_state(&vs);
         let leader = engine.current_leader(&state);
 
-        engine.propose_block(&state, &leader, vec![]).await.unwrap();
+        engine.propose_block(&state, &keypair_for(leader), vec![]).await.unwrap();
 
         let vs_arc = engine.validator_set();
         let vs_read = vs_arc.read().await;
@@ -341,7 +337,7 @@ mod tests {
         let state = genesis_state(&vs);
         let leader = engine.current_leader(&state);
 
-        let mut block = engine.propose_block(&state, &leader, vec![]).await.unwrap();
+        let mut block = engine.propose_block(&state, &keypair_for(leader), vec![]).await.unwrap();
 
         // Tamper proposer.
         let other = if leader == addr(1) { addr(2) } else { addr(1) };
@@ -366,7 +362,7 @@ mod tests {
             let leader = engine.current_leader(&state);
 
             let block = engine
-                .propose_block(&state, &leader, vec![make_tx(h)])
+                .propose_block(&state, &keypair_for(leader), vec![make_tx(h)])
                 .await
                 .unwrap();
 
