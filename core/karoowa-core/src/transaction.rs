@@ -69,6 +69,12 @@ impl Transaction {
         sha3_256(&bytes)
     }
 
+    /// The transaction's encoded (bincode) size in bytes — the unit the
+    /// block/tx size limits are measured in.
+    pub fn encoded_size(&self) -> usize {
+        bincode::serialized_size(self).expect("transaction serialization cannot fail") as usize
+    }
+
     /// Build and sign a transfer transaction.
     pub fn sign_transfer(
         keypair: &Keypair,

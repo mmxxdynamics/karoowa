@@ -158,6 +158,12 @@ impl ConsensusEngine for PoAEngine {
             ConsensusError::InvalidBlock(format!("transaction {i} has an invalid signature: {e:?}"))
         })?;
 
+        // 5c. Protocol size limits: cap the per-block cost a proposer can
+        //     impose on every validator and light client.
+        block
+            .validate_size_limits()
+            .map_err(ConsensusError::InvalidBlock)?;
+
         // 6. The proposer must have signed the block (real authentication,
         //    replacing the old public consensus_data tag).
         block.header.verify_proposer_signature().map_err(|e| {

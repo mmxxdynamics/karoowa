@@ -245,6 +245,12 @@ impl ConsensusEngine for BFTEngine {
             ConsensusError::InvalidBlock(format!("transaction {i} has an invalid signature: {e:?}"))
         })?;
 
+        // 5c. Protocol size limits: cap the per-block cost a proposer can
+        //     impose on every validator and light client.
+        block
+            .validate_size_limits()
+            .map_err(ConsensusError::InvalidBlock)?;
+
         // 6. The proposer must have signed the block.
         block.header.verify_proposer_signature().map_err(|e| {
             ConsensusError::InvalidBlock(format!("invalid proposer signature: {e:?}"))

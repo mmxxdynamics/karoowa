@@ -102,6 +102,17 @@ impl Mempool {
         tx.verify_signature()
             .map_err(|e| RejectReason::Invalid(format!("invalid signature: {e:?}")))?;
 
+        // 0b. Reject oversized transactions. MAX_TX_BYTES is well below the
+        //     block body limit, so anything admitted here always fits in a
+        //     block — an oversized tx must never wedge block building.
+        let size = tx.encoded_size();
+        if size > karoowa_core::MAX_TX_BYTES {
+            return Err(RejectReason::Invalid(format!(
+                "transaction is {size} bytes, limit is {}",
+                karoowa_core::MAX_TX_BYTES
+            )));
+        }
+
         let hash = tx.hash();
         let sender = tx.from;
         let nonce = tx.nonce;
@@ -434,5 +445,21 @@ mod tests {
         let evicted = pool.evict_expired();
         assert_eq!(evicted, 1);
         assert_eq!(pool.len(), 0);
+    }
+
+    #[test]
+    fn reject_oversized_transaction() {
+        let mut pool = Mempool::new(MempoolConfig::default());
+        let kp = Keypair::from_seed(&[1u8; 32]);
+        let to = Address::from_public_key(&[2u8; 32]);
+        let big = Transaction::sign_raw(
+            &kp, Some(to), 0, 0, 1, 100_000,
+            vec![0u8; karoowa_core::MAX_TX_BYTES + 1], 1,
+        );
+        match pool.insert(big) {
+            Err(RejectReason::Invalid(msg)) => assert!(msg.contains("bytes"), "{msg}"),
+            other => panic!("expected oversized rejection, got {other:?}"),
+        }
+        assert!(pool.is_empty());
     }
 }
