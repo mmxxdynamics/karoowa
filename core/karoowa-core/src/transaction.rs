@@ -46,6 +46,22 @@ struct SignablePayload<'a> {
     chain_id: u64,
 }
 
+/// Domain-separation prefix for transaction signatures.
+///
+/// Binding a purpose tag into the signed bytes prevents a signature produced
+/// in another context (e.g. a SimpleContxt credential attestation signed by
+/// the same key) from being replayed as a Karoowa transaction, and vice-versa.
+/// Every distinct signing purpose MUST use a distinct domain string.
+const TX_SIGNING_DOMAIN: &[u8] = b"karoowa-tx-v1";
+
+/// Build the domain-separated message actually signed/verified for a transaction.
+fn tx_signing_message(payload_bytes: &[u8]) -> Vec<u8> {
+    let mut msg = Vec::with_capacity(TX_SIGNING_DOMAIN.len() + payload_bytes.len());
+    msg.extend_from_slice(TX_SIGNING_DOMAIN);
+    msg.extend_from_slice(payload_bytes);
+    msg
+}
+
 impl Transaction {
     /// Compute the transaction hash (SHA3-256 of the bincode-serialized tx).
     pub fn hash(&self) -> Hash {
@@ -102,7 +118,7 @@ impl Transaction {
         let payload_bytes =
             bincode::serialize(&payload).expect("signable payload serialization cannot fail");
 
-        let sig = keypair.sign(&payload_bytes);
+        let sig = keypair.sign(&tx_signing_message(&payload_bytes));
 
         Transaction {
             from,
@@ -148,7 +164,7 @@ impl Transaction {
             .map_err(|_| SignatureError::Invalid)?;
 
         let sig = karoowa_crypto::Signature::from_parts(&sig_bytes, &pk_bytes)?;
-        sig.verify(&payload_bytes)?;
+        sig.verify(&tx_signing_message(&payload_bytes))?;
 
         // Verify that `from` matches the signer's public key.
         let derived_addr = Address::from_public_key(&pk_bytes);

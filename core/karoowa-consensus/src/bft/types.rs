@@ -84,11 +84,17 @@ impl BFTConfig {
         (self.validators.len() - 1) / 3
     }
 
-    /// The quorum size required: 2f+1 where f = max_faults.
-    /// This equals ceil(2n/3).
+    /// The quorum size required: STRICTLY more than 2/3 of validators.
     pub fn quorum_size(&self) -> usize {
         let n = self.validators.len();
-        (2 * n).div_ceil(3)
+        if n == 0 {
+            return 0;
+        }
+        // The previous `ceil(2n/3)` equals *exactly* 2/3 when n is divisible by
+        // 3 (e.g. n=6 -> 4), which lets two disjoint "quorums" of 4 form and
+        // finalize conflicting blocks. `floor(2n/3)+1` is a strict supermajority
+        // and guarantees quorum intersection in at least one honest node.
+        (2 * n) / 3 + 1
     }
 
     /// Determine the proposer for a given height and round.
@@ -269,7 +275,27 @@ mod tests {
             ..test_config()
         };
         assert_eq!(cfg.max_faults(), 2);
-        assert_eq!(cfg.quorum_size(), 5); // ceil(14/3) = 5
+        assert_eq!(cfg.quorum_size(), 5); // floor(14/3)+1 = 5
+    }
+
+    #[test]
+    fn quorum_is_strict_supermajority() {
+        // For every validator count (esp. n divisible by 3, which the old
+        // ceil(2n/3) got wrong), the quorum must be STRICTLY more than 2/3.
+        for n in 1..=30u8 {
+            let cfg = BFTConfig {
+                validators: (1..=n).map(addr).collect(),
+                ..test_config()
+            };
+            let n = n as usize;
+            let q = cfg.quorum_size();
+            assert!(3 * q > 2 * n, "n={n}: quorum {q} is not > 2/3");
+            // Two quorums must intersect (2q > n).
+            assert!(2 * q > n, "n={n}: quorum {q} does not guarantee intersection");
+        }
+        // The specific regressions: n divisible by 3.
+        let q6 = BFTConfig { validators: (1..=6).map(addr).collect(), ..test_config() }.quorum_size();
+        assert_eq!(q6, 5); // was 4 (exactly 2/3) — unsafe
     }
 
     #[test]

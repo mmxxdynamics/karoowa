@@ -84,8 +84,18 @@ impl StateDiff {
         amount: u64,
         from_account: &Account,
         to_account: &Account,
-    ) {
-        // Debit sender
+    ) -> Result<(), crate::error::CoreError> {
+        // Value conservation: never debit more than the sender holds. Without
+        // this guard, `saturating_sub` floored the sender to 0 while the
+        // receiver was credited the full amount — minting value from nothing.
+        if from_account.balance < amount {
+            return Err(crate::error::CoreError::TransactionValidation(format!(
+                "insufficient balance: have {}, need {}",
+                from_account.balance, amount
+            )));
+        }
+
+        // Debit sender (guarded above, so this cannot underflow).
         let mut sender = from_account.clone();
         sender.balance = sender.balance.saturating_sub(amount);
         sender.nonce += 1;
@@ -95,6 +105,7 @@ impl StateDiff {
         let mut receiver = to_account.clone();
         receiver.balance = receiver.balance.saturating_add(amount);
         self.accounts.insert(to, AccountChange::Modified(receiver));
+        Ok(())
     }
 
     /// Number of accounts affected.
@@ -138,7 +149,8 @@ mod tests {
         let to_acct = Account::new_eoa();
 
         let mut diff = StateDiff::new();
-        diff.apply_transfer(from, to, 300, &from_acct, &to_acct);
+        diff.apply_transfer(from, to, 300, &from_acct, &to_acct)
+            .expect("transfer within balance should succeed");
 
         assert_eq!(diff.account_count(), 2);
 
@@ -148,12 +160,22 @@ mod tests {
         } else {
             panic!("expected Modified");
         }
+    }
 
-        if let AccountChange::Modified(receiver) = &diff.accounts[&to] {
-            assert_eq!(receiver.balance, 300);
-        } else {
-            panic!("expected Modified");
-        }
+    #[test]
+    fn transfer_exceeding_balance_is_rejected() {
+        // Value-conservation guard: cannot transfer more than the sender holds.
+        let from = Address::from_public_key(&[1u8; 32]);
+        let to = Address::from_public_key(&[2u8; 32]);
+        let mut from_acct = Account::new_eoa();
+        from_acct.balance = 100;
+        let to_acct = Account::new_eoa();
+
+        let mut diff = StateDiff::new();
+        let result = diff.apply_transfer(from, to, 300, &from_acct, &to_acct);
+        assert!(result.is_err());
+        // No state change on a rejected transfer.
+        assert_eq!(diff.account_count(), 0);
     }
 
     #[test]
