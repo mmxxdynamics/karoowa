@@ -2,8 +2,11 @@
 
 use clap::Args;
 use karoowa_api::server::{start_server, ServerConfig};
-use karoowa_consensus::{BlockProducer, PoAConfig, PoAEngine, ProducerConfig};
-use karoowa_core::{Account, BlockHeader};
+use karoowa_consensus::{
+    BlockProducer, ChainState, ConsensusEngine, ConsensusError, PoAConfig, PoAEngine,
+    ProducerConfig,
+};
+use karoowa_core::{Account, Block, BlockHeader};
 use karoowa_crypto::{Address, Hash, Keypair};
 use karoowa_network::{Network, NetworkConfig};
 use karoowa_storage::{BlockStore, RocksStorage, StateStore};
@@ -159,8 +162,11 @@ pub async fn run(args: NodeArgs) -> Result<(), Box<dyn std::error::Error>> {
                 block_interval: Duration::from_secs(args.block_time),
             };
 
-            let (producer, mut block_rx) =
-                BlockProducer::new(engine, producer_config, genesis_header);
+            let (producer, mut block_rx) = BlockProducer::new(
+                Arc::clone(&engine),
+                producer_config,
+                genesis_header.clone(),
+            );
 
             // Bridge the RPC mempool into the producer's pending pool.
             // `kw_sendRawTransaction` admits into the shared mempool; without
@@ -200,12 +206,32 @@ pub async fn run(args: NodeArgs) -> Result<(), Box<dyn std::error::Error>> {
 
             let storage_handle = Arc::clone(&storage);
             let network_handle = network.clone();
+            let engine_handle = Arc::clone(&engine);
+            let mut chain_head = genesis_header;
             tokio::spawn(async move {
                 while let Some(block) = block_rx.recv().await {
+                    // Fail closed: the engine must accept our own block before
+                    // it is persisted or broadcast. Self-produced blocks
+                    // previously skipped validate_block entirely, so a
+                    // producer bug (or compromise) could persist a block every
+                    // honest peer would reject — silently forking this node.
+                    if let Err(e) =
+                        validate_self_produced_block(engine_handle.as_ref(), &chain_head, &block)
+                    {
+                        tracing::error!(
+                            height = block.height(),
+                            hash = %block.hash(),
+                            error = %e,
+                            "self-produced block failed consensus validation — \
+                             not persisting (producer bug or compromise)"
+                        );
+                        continue;
+                    }
                     if let Err(e) = storage_handle.put_block(&block) {
                         tracing::error!(error = %e, "failed to persist block");
                         continue;
                     }
+                    chain_head = block.header.clone();
                     if let Err(e) = network_handle.broadcast_block(&block).await {
                         tracing::warn!(error = %e, "failed to broadcast block");
                     }
@@ -225,6 +251,32 @@ pub async fn run(args: NodeArgs) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     Ok(())
+}
+
+/// Validate a self-produced block against the consensus engine before it is
+/// persisted or broadcast.
+///
+/// `head` is the header of the last block this node successfully persisted
+/// (genesis / resume head at startup); the produced block must extend it.
+/// Uses the engine's full `validate_block` — the same rules every honest peer
+/// applies to this block on receipt — so nothing reaches local storage that
+/// the network would reject.
+fn validate_self_produced_block<E: ConsensusEngine>(
+    engine: &E,
+    head: &BlockHeader,
+    block: &Block,
+) -> Result<(), ConsensusError> {
+    let state = ChainState {
+        head: head.clone(),
+        next_height: head.height + 1,
+        // PoA validation does not check the timestamp; populated to satisfy
+        // the ChainState contract, falling back to 0 rather than panicking.
+        timestamp: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0),
+    };
+    engine.validate_block(block, &state)
 }
 
 /// Apply `--genesis-allocation ADDR=AMOUNT` entries to a fresh state.
@@ -261,4 +313,96 @@ fn apply_genesis_allocations(
         );
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use karoowa_core::Transaction;
+
+    /// Single-validator PoA setup mirroring the node's production wiring.
+    fn setup() -> (PoAEngine, Keypair, BlockHeader) {
+        let kp = Keypair::from_seed(&[7u8; 32]);
+        let engine = PoAEngine::new(PoAConfig {
+            validators: vec![kp.address()],
+        })
+        .expect("valid PoA config");
+        let genesis = BlockHeader {
+            parent_hash: Hash::ZERO,
+            state_root: Hash::ZERO,
+            tx_root: Hash::ZERO,
+            receipt_root: Hash::ZERO,
+            height: 0,
+            timestamp: 1_700_000_000,
+            proposer: kp.address(),
+            consensus_data: vec![],
+        };
+        (engine, kp, genesis)
+    }
+
+    async fn propose(
+        engine: &PoAEngine,
+        kp: &Keypair,
+        head: &BlockHeader,
+        txs: Vec<Transaction>,
+    ) -> Block {
+        let state = ChainState {
+            head: head.clone(),
+            next_height: head.height + 1,
+            timestamp: 1_700_000_002,
+        };
+        engine
+            .propose_block(&state, kp, txs)
+            .await
+            .expect("propose block")
+    }
+
+    fn make_tx(nonce: u64) -> Transaction {
+        let sender = Keypair::from_seed(&[8u8; 32]);
+        let to = Address::from_public_key(&[99u8; 32]);
+        Transaction::sign_transfer(&sender, to, 100, nonce, 1, 21000, 1)
+    }
+
+    #[tokio::test]
+    async fn valid_self_produced_block_is_accepted() {
+        let (engine, kp, genesis) = setup();
+        let block = propose(&engine, &kp, &genesis, vec![make_tx(0)]).await;
+        assert!(validate_self_produced_block(&engine, &genesis, &block).is_ok());
+    }
+
+    #[tokio::test]
+    async fn self_produced_block_with_forged_tx_is_rejected() {
+        // Simulate a compromised/buggy producer: a forged-signature tx is
+        // slipped into an otherwise well-formed block (tx root recomputed,
+        // header re-signed by the proposer). The pre-persist gate must reject.
+        let (engine, kp, genesis) = setup();
+        let mut tx = make_tx(0);
+        tx.signature[0] ^= 0xff;
+
+        let mut block = propose(&engine, &kp, &genesis, vec![]).await;
+        block.transactions.push(tx);
+        block.header.tx_root = block.compute_tx_root();
+        block.header.sign_as_proposer(&kp);
+
+        assert!(validate_self_produced_block(&engine, &genesis, &block).is_err());
+    }
+
+    #[tokio::test]
+    async fn self_produced_block_with_unsigned_header_is_rejected() {
+        let (engine, kp, genesis) = setup();
+        let mut block = propose(&engine, &kp, &genesis, vec![make_tx(0)]).await;
+        block.header.consensus_data = vec![]; // strip the proposer attestation
+        assert!(validate_self_produced_block(&engine, &genesis, &block).is_err());
+    }
+
+    #[tokio::test]
+    async fn self_produced_block_with_wrong_height_is_rejected() {
+        // A producer whose head diverged from persisted state must not be able
+        // to persist a block that skips heights, even if correctly signed.
+        let (engine, kp, genesis) = setup();
+        let mut block = propose(&engine, &kp, &genesis, vec![]).await;
+        block.header.height = 5;
+        block.header.sign_as_proposer(&kp);
+        assert!(validate_self_produced_block(&engine, &genesis, &block).is_err());
+    }
 }
