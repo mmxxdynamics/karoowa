@@ -174,7 +174,20 @@ impl ConsensusEngine for PoAEngine {
             ));
         }
 
-        // 6. Consensus data must be correct.
+        // 6. Every transaction must carry a valid signature binding it to
+        // its `from` address. The mempool already rejects forgeries, but a
+        // malicious or buggy proposer can put transactions straight into a
+        // block, so validation must not trust the proposer's pool.
+        for tx in &block.transactions {
+            if let Err(e) = tx.verify_signature() {
+                return Err(ConsensusError::InvalidBlock(format!(
+                    "transaction {} failed signature verification: {e:?}",
+                    tx.hash()
+                )));
+            }
+        }
+
+        // 7. Consensus data must be correct.
         Self::verify_consensus_data(block, state)?;
 
         Ok(())
@@ -304,6 +317,26 @@ mod tests {
             .unwrap();
 
         assert!(engine.validate_block(&block, &state).is_ok());
+    }
+
+    #[tokio::test]
+    async fn validate_block_with_forged_tx_fails() {
+        let engine = test_engine();
+        let (state, _) = genesis_state();
+        let leader = engine.current_leader(&state);
+
+        // The mempool never saw this transaction: a malicious proposer put
+        // it straight into the block. The signature is valid but `from`
+        // claims an address the signing key does not control.
+        let mut forged = make_tx(0);
+        forged.from = Address::from_public_key(&[7u8; 32]);
+
+        let block = engine
+            .propose_block(&state, &leader, vec![forged])
+            .await
+            .unwrap();
+
+        assert!(engine.validate_block(&block, &state).is_err());
     }
 
     #[tokio::test]

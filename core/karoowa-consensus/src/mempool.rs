@@ -95,6 +95,16 @@ impl Mempool {
     ///
     /// Returns `Ok(())` if accepted, or `Err(RejectReason)` if rejected.
     pub fn insert(&mut self, tx: Transaction) -> Result<(), RejectReason> {
+        // 0. Reject forgeries. Every entry path (RPC, gossip, producer)
+        // funnels through here, and nothing upstream validates: without
+        // this check `tx.from` is a free-form claim, so anyone could
+        // submit a transaction "from" any address.
+        if let Err(e) = tx.verify_signature() {
+            return Err(RejectReason::Invalid(format!(
+                "signature verification failed: {e:?}"
+            )));
+        }
+
         let hash = tx.hash();
         let sender = tx.from;
         let nonce = tx.nonce;
@@ -252,6 +262,30 @@ mod tests {
         assert_eq!(pool.len(), 1);
         assert!(pool.contains(&hash));
         assert!(pool.get(&hash).is_some());
+    }
+
+    #[test]
+    fn garbage_signature_is_rejected() {
+        let mut pool = Mempool::new(MempoolConfig::default());
+        let kp = Keypair::from_seed(&[1u8; 32]);
+        let mut tx = make_tx(&kp, 0, 10);
+        tx.signature = vec![0u8; 64];
+
+        assert!(matches!(pool.insert(tx), Err(RejectReason::Invalid(_))));
+        assert_eq!(pool.len(), 0);
+    }
+
+    #[test]
+    fn forged_from_address_is_rejected() {
+        let mut pool = Mempool::new(MempoolConfig::default());
+        let kp = Keypair::from_seed(&[1u8; 32]);
+        let mut tx = make_tx(&kp, 0, 10);
+        // Valid signature, but claims to be from an address the signing
+        // key does not control.
+        tx.from = Address::from_public_key(&[7u8; 32]);
+
+        assert!(matches!(pool.insert(tx), Err(RejectReason::Invalid(_))));
+        assert_eq!(pool.len(), 0);
     }
 
     #[test]
