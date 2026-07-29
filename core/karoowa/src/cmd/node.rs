@@ -185,7 +185,15 @@ pub async fn run(args: NodeArgs) -> Result<(), Box<dyn std::error::Error>> {
                     let hashes: Vec<_> = txs.iter().map(|tx| tx.hash()).collect();
                     mempool_handle.remove_mined(&hashes).await;
                     for tx in txs {
-                        pending_sender.submit(tx).await;
+                        // Mempool-admitted txs are already signature-verified,
+                        // so a rejection here indicates a bug or tampering.
+                        // The tx is dropped — it is never proposed.
+                        if let Err(e) = pending_sender.submit(tx).await {
+                            tracing::warn!(
+                                reason = ?e,
+                                "pending pool rejected mempool-drained transaction"
+                            );
+                        }
                     }
                 }
             });
