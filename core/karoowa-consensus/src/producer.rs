@@ -15,7 +15,7 @@ use tracing::{debug, info, warn};
 
 use crate::engine::{ChainState, ConsensusEngine};
 use crate::error::ConsensusError;
-use crate::mempool::Mempool;
+use crate::mempool::{Mempool, RejectReason};
 
 /// A handle to the block producer that receives newly produced blocks.
 pub type BlockReceiver = mpsc::Receiver<Block>;
@@ -179,8 +179,27 @@ pub struct PendingTxSender {
 
 impl PendingTxSender {
     /// Add a transaction to the pending pool.
-    pub async fn submit(&self, tx: Transaction) {
+    ///
+    /// The transaction is authenticated BEFORE admission: it must carry a
+    /// valid signature whose signer key derives its `from` address (the same
+    /// check as [`Mempool::insert`]). This ingress feeds `propose_block`
+    /// directly, so an unverified transaction accepted here would be included
+    /// in a block signed by this node — admission must fail closed.
+    ///
+    /// Returns `Err(RejectReason)` if the transaction was not accepted; a
+    /// rejected transaction never enters the pending pool.
+    pub async fn submit(&self, tx: Transaction) -> Result<(), RejectReason> {
+        if let Err(e) = tx.verify_signature() {
+            warn!(
+                hash = %tx.hash(),
+                from = %tx.from,
+                error = ?e,
+                "rejected pending transaction with invalid signature"
+            );
+            return Err(RejectReason::Invalid(format!("invalid signature: {e:?}")));
+        }
         self.txs.lock().await.push(tx);
+        Ok(())
     }
 }
 
@@ -310,7 +329,7 @@ mod tests {
         let tx_sender = producer.pending_tx_sender();
         let to = Address::from_public_key(&[99u8; 32]);
         let tx = Transaction::sign_transfer(&keypairs[0], to, 100, 0, 1, 21000, 1);
-        tx_sender.submit(tx).await;
+        tx_sender.submit(tx).await.expect("valid tx accepted");
 
         // Run the producer in the background and wait for the first block.
         let handle = tokio::spawn(producer.run());
@@ -339,10 +358,79 @@ mod tests {
         let to = Address::ZERO;
         sender1
             .submit(Transaction::sign_transfer(&kp, to, 1, 0, 1, 21000, 1))
-            .await;
+            .await
+            .expect("valid tx accepted");
         sender2
             .submit(Transaction::sign_transfer(&kp, to, 2, 1, 1, 21000, 1))
-            .await;
+            .await
+            .expect("valid tx accepted");
+    }
+
+    #[tokio::test]
+    async fn submit_rejects_forged_signature() {
+        // Producer-ingress gate: a transaction with a corrupted signature must
+        // never enter the pending pool (it would otherwise be proposed as-is).
+        let (engine, config, genesis, keypairs) = test_setup();
+        let (producer, _rx) = BlockProducer::new(engine, config, genesis);
+        let tx_sender = producer.pending_tx_sender();
+
+        let to = Address::from_public_key(&[99u8; 32]);
+        let mut tx = Transaction::sign_transfer(&keypairs[0], to, 100, 0, 1, 21000, 1);
+        tx.signature[0] ^= 0xff;
+
+        assert!(matches!(
+            tx_sender.submit(tx).await,
+            Err(RejectReason::Invalid(_))
+        ));
+    }
+
+    #[tokio::test]
+    async fn submit_rejects_impersonated_sender() {
+        // Producer-ingress gate: a transaction whose `from` does not match the
+        // signer's key must be rejected — same rule as Mempool::insert.
+        let (engine, config, genesis, keypairs) = test_setup();
+        let (producer, _rx) = BlockProducer::new(engine, config, genesis);
+        let tx_sender = producer.pending_tx_sender();
+
+        let to = Address::from_public_key(&[99u8; 32]);
+        let mut tx = Transaction::sign_transfer(&keypairs[0], to, 100, 0, 1, 21000, 1);
+        tx.from = Address::from_public_key(&[9u8; 32]);
+
+        assert!(matches!(
+            tx_sender.submit(tx).await,
+            Err(RejectReason::Invalid(_))
+        ));
+    }
+
+    #[tokio::test]
+    async fn forged_tx_never_appears_in_proposed_block() {
+        // End-to-end regression for the unverified-producer-ingress gap: a
+        // forged tx submitted via PendingTxSender must never be proposed.
+        let (engine, config, genesis, keypairs) = test_setup();
+        let (producer, mut block_rx) = BlockProducer::new(engine, config, genesis);
+        let tx_sender = producer.pending_tx_sender();
+
+        let to = Address::from_public_key(&[99u8; 32]);
+        let valid = Transaction::sign_transfer(&keypairs[0], to, 100, 0, 1, 21000, 1);
+        let valid_hash = valid.hash();
+        let mut forged = Transaction::sign_transfer(&keypairs[1], to, 500, 0, 1, 21000, 1);
+        forged.signature[0] ^= 0xff;
+        let forged_hash = forged.hash();
+
+        assert!(tx_sender.submit(forged).await.is_err());
+        tx_sender.submit(valid).await.expect("valid tx accepted");
+
+        let handle = tokio::spawn(producer.run());
+        let block = tokio::time::timeout(Duration::from_secs(2), block_rx.recv())
+            .await
+            .expect("timed out waiting for block")
+            .expect("channel closed");
+
+        assert_eq!(block.transactions.len(), 1);
+        assert_eq!(block.transactions[0].hash(), valid_hash);
+        assert!(block.transactions.iter().all(|tx| tx.hash() != forged_hash));
+
+        handle.abort();
     }
 
     #[tokio::test]
