@@ -307,6 +307,27 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn validate_block_with_forged_tx_fails() {
+        // Ported from PR #27. The mempool never saw this transaction: a
+        // malicious proposer put it straight into the block. The signature is
+        // valid but `from` claims an address the signing key does not control,
+        // so step 5b (Block::verify_transaction_signatures) must reject it.
+        let engine = test_engine();
+        let (state, _) = genesis_state();
+        let leader = engine.current_leader(&state);
+
+        let mut forged = make_tx(0);
+        forged.from = Address::from_public_key(&[7u8; 32]);
+
+        let block = engine
+            .propose_block(&state, &keypair_for(leader), vec![forged])
+            .await
+            .unwrap();
+
+        assert!(engine.validate_block(&block, &state).is_err());
+    }
+
+    #[tokio::test]
     async fn validate_wrong_proposer_fails() {
         let engine = test_engine();
         let (state, _) = genesis_state();

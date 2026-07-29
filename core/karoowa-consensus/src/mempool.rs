@@ -284,6 +284,21 @@ mod tests {
     }
 
     #[test]
+    fn garbage_signature_is_rejected() {
+        // Ported from PR #27. Complements `reject_forged_signature`: an
+        // all-zeros signature is not a corrupted-but-well-formed one — it
+        // decodes to a degenerate (small-order) point, exercising the strict
+        // verification rejection path rather than a plain mismatch.
+        let mut pool = Mempool::new(MempoolConfig::default());
+        let kp = Keypair::from_seed(&[1u8; 32]);
+        let mut tx = make_tx(&kp, 0, 10);
+        tx.signature = vec![0u8; 64];
+
+        assert!(matches!(pool.insert(tx), Err(RejectReason::Invalid(_))));
+        assert_eq!(pool.len(), 0);
+    }
+
+    #[test]
     fn reject_impersonated_sender() {
         // C1 gate: a transaction whose `from` does not match the signer's key
         // must be rejected — otherwise `from` is a free impersonation field.
