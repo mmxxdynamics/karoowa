@@ -25,7 +25,15 @@ updates:
       day: monday
       time: "07:00"
       timezone: Europe/London
-    open-pull-requests-limit: 5
+    # Raised 5 → 10 to match the cargo section. The old limit of 5 was
+    # saturated by PRs #1-#5, so no PR was ever opened for the actions still
+    # on Node 20 (actions/upload-artifact, docker/login-action,
+    # docker/metadata-action, docker/build-push-action,
+    # softprops/action-gh-release, actions/attest-build-provenance).
+    # GitHub runners remove Node 20 on 2026-09-16, and release.yml is
+    # tag-triggered, so those would fail at the next release with no prior
+    # CI warning.
+    open-pull-requests-limit: 10
     labels: ["A-dependencies", "C-github-actions"]
     commit-message:
       prefix: "chore(ci)"
@@ -33,6 +41,13 @@ updates:
     groups:
       github-actions-minor-and-patch:
         update-types: ["minor", "patch"]
+    ignore:
+      # This action's ref IS the Rust release to install, not a package
+      # version. Dependabot misreads the git tag as semver and proposed
+      # 1.92 → 1.100, a Rust version that does not exist (rustup 404s in CI).
+      # The ref must only ever move in lockstep with `rust-version` in the
+      # workspace Cargo.toml.
+      - dependency-name: "dtolnay/rust-toolchain"
 
   # Docker base images.
   - package-ecosystem: docker
