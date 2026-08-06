@@ -25,7 +25,7 @@ serde_json = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 metrics = "0.24"
-metrics-exporter-prometheus = { version = "0.16", default-features = false, features = ["http-listener"] }
+metrics-exporter-prometheus = { version = "0.18", default-features = false, features = ["http-listener"] }
 tower-http = { version = "0.6", features = ["cors"] }
 
 [dev-dependencies]
