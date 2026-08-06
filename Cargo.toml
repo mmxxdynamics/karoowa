@@ -96,7 +96,7 @@ hex = "0.4"
 
 # Errors
 anyhow = "1"
-thiserror = "1"
+thiserror = "2"
 
 # Logging / tracing
 tracing = "0.1"
