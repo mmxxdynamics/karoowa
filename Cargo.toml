@@ -27,7 +27,7 @@ members = [
 [workspace.package]
 version = "0.6.0-dev"
 edition = "2021"
-rust-version = "1.92"
+rust-version = "1.94"
 license = "Apache-2.0"
 authors = ["Karoowa Contributors"]
 repository = "https://github.com/mmxxdynamics/karoowa"
