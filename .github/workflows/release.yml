@@ -161,7 +161,7 @@ jobs:
             artifacts/karoowa-*
 
       - name: Create or update GitHub Release (draft)
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ env.TAG }}
           draft: true
