@@ -186,7 +186,18 @@ impl ConsensusEngine for PoSEngine {
             ));
         }
 
-        // 6. Verify consensus data.
+        // 6. Every transaction must carry a valid signature binding it to its
+        // `from` address. A block body is attacker-controlled, so the elected
+        // leader must not be trusted to have gone through the mempool.
+        block
+            .verify_transaction_signatures()
+            .map_err(|(index, e)| {
+                ConsensusError::InvalidBlock(format!(
+                    "transaction at index {index} failed signature verification: {e:?}"
+                ))
+            })?;
+
+        // 7. Verify consensus data.
         let total_stake = vs.total_active_stake();
         let expected_data =
             Self::make_consensus_data(block.height(), &block.header.proposer, total_stake);
@@ -326,6 +337,47 @@ mod tests {
         let vs_read = vs_arc.read().await;
         let validator = vs_read.validators.get(&leader).unwrap();
         assert_eq!(validator.pending_rewards, 10); // block_reward = 10
+    }
+
+    #[tokio::test]
+    async fn validate_block_with_forged_tx_fails() {
+        let vs = test_validator_set();
+        let engine = PoSEngine::new(vs.clone()).unwrap();
+        let state = genesis_state(&vs);
+        let leader = engine.current_leader(&state);
+
+        // The mempool never saw this transaction: the elected leader put it
+        // straight into the block. The signature is valid but `from` claims an
+        // address the signing key does not control.
+        let mut forged = make_tx(0);
+        forged.from = Address::from_public_key(&[7u8; 32]);
+
+        let block = engine
+            .propose_block(&state, &leader, vec![forged])
+            .await
+            .unwrap();
+
+        assert!(engine.validate_block(&block, &state).is_err());
+    }
+
+    #[tokio::test]
+    async fn validate_block_rejects_forged_tx_after_valid_ones() {
+        let vs = test_validator_set();
+        let engine = PoSEngine::new(vs.clone()).unwrap();
+        let state = genesis_state(&vs);
+        let leader = engine.current_leader(&state);
+
+        // Pins that the check scans the whole body rather than stopping at the
+        // first transaction.
+        let mut forged = make_tx(2);
+        forged.from = Address::from_public_key(&[7u8; 32]);
+
+        let block = engine
+            .propose_block(&state, &leader, vec![make_tx(0), make_tx(1), forged])
+            .await
+            .unwrap();
+
+        assert!(engine.validate_block(&block, &state).is_err());
     }
 
     #[tokio::test]

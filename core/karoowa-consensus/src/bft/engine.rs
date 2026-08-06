@@ -245,7 +245,19 @@ impl ConsensusEngine for BFTEngine {
             ));
         }
 
-        // 6. Consensus data.
+        // 6. Every transaction must carry a valid signature binding it to its
+        // `from` address. Without this a forged transaction would be committed
+        // behind a quorum certificate, i.e. finalized by the whole validator
+        // set rather than merely accepted by one node.
+        block
+            .verify_transaction_signatures()
+            .map_err(|(index, e)| {
+                ConsensusError::InvalidBlock(format!(
+                    "transaction at index {index} failed signature verification: {e:?}"
+                ))
+            })?;
+
+        // 7. Consensus data.
         let expected_data = Self::make_consensus_data(block.height(), 0, &block.header.proposer);
         if block.header.consensus_data != expected_data {
             return Err(ConsensusError::InvalidBlock(
@@ -312,6 +324,25 @@ mod tests {
         let state = genesis_state();
         // Height 1, round 0 → validators[1] (index = 1 % 4)
         assert_eq!(engine.current_leader(&state), addr(2));
+    }
+
+    #[tokio::test]
+    async fn validate_block_with_forged_tx_fails() {
+        let engine = BFTEngine::new(test_config()).unwrap();
+        let state = genesis_state();
+        let leader = engine.current_leader(&state);
+
+        // Without this check the forgery would be committed behind a quorum
+        // certificate, i.e. finalized by the whole validator set.
+        let mut forged = make_tx(0);
+        forged.from = Address::from_public_key(&[7u8; 32]);
+
+        let block = engine
+            .propose_block(&state, &leader, vec![forged])
+            .await
+            .unwrap();
+
+        assert!(engine.validate_block(&block, &state).is_err());
     }
 
     #[tokio::test]

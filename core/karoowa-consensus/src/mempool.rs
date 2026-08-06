@@ -95,6 +95,28 @@ impl Mempool {
     ///
     /// Returns `Ok(())` if accepted, or `Err(RejectReason)` if rejected.
     pub fn insert(&mut self, tx: Transaction) -> Result<(), RejectReason> {
+        // 0. Reject forgeries. Nothing upstream validates, so without this
+        // check `tx.from` is a free-form claim and anyone could submit a
+        // transaction "from" any address.
+        //
+        // This covers the RPC path (`kw_sendRawTransaction` -> `MempoolHandle`),
+        // but it is NOT the only way a transaction reaches a block:
+        // `PendingTxSender::submit` pushes straight into the producer's pending
+        // queue without touching the mempool. Block validation therefore
+        // re-verifies every signature via `Block::verify_transaction_signatures`
+        // rather than trusting that a transaction came through here.
+        //
+        // Verification deliberately stays ahead of the replace-by-fee branch
+        // below, which evicts an existing transaction. Verifying after it would
+        // let an unsigned transaction with a victim's sender+nonce and a small
+        // gas bump evict the victim's legitimate transaction before being
+        // rejected itself.
+        if let Err(e) = tx.verify_signature() {
+            return Err(RejectReason::Invalid(format!(
+                "signature verification failed: {e:?}"
+            )));
+        }
+
         let hash = tx.hash();
         let sender = tx.from;
         let nonce = tx.nonce;
@@ -252,6 +274,57 @@ mod tests {
         assert_eq!(pool.len(), 1);
         assert!(pool.contains(&hash));
         assert!(pool.get(&hash).is_some());
+    }
+
+    #[test]
+    fn garbage_signature_is_rejected() {
+        let mut pool = Mempool::new(MempoolConfig::default());
+        let kp = Keypair::from_seed(&[1u8; 32]);
+        let mut tx = make_tx(&kp, 0, 10);
+        tx.signature = vec![0u8; 64];
+
+        assert!(matches!(pool.insert(tx), Err(RejectReason::Invalid(_))));
+        assert_eq!(pool.len(), 0);
+    }
+
+    #[test]
+    fn invalid_signature_cannot_evict_via_replace_by_fee() {
+        // Regression guard for the check ordering in `insert`. Signature
+        // verification must run before the replace-by-fee branch: if it ran
+        // after, this unsigned transaction would evict the victim's legitimate
+        // one on its way to being rejected, giving an attacker a free eviction
+        // primitive that costs them nothing.
+        let mut pool = Mempool::new(MempoolConfig::default());
+        let victim_kp = Keypair::from_seed(&[1u8; 32]);
+
+        let legit = make_tx(&victim_kp, 0, 10);
+        let legit_hash = legit.hash();
+        pool.insert(legit).unwrap();
+
+        // Same sender + nonce, gas price bumped well past the RBF threshold,
+        // but the signature is garbage.
+        let mut attacker = make_tx(&victim_kp, 0, 100);
+        attacker.signature = vec![0u8; 64];
+
+        assert!(matches!(
+            pool.insert(attacker),
+            Err(RejectReason::Invalid(_))
+        ));
+        assert_eq!(pool.len(), 1);
+        assert!(pool.get(&legit_hash).is_some());
+    }
+
+    #[test]
+    fn forged_from_address_is_rejected() {
+        let mut pool = Mempool::new(MempoolConfig::default());
+        let kp = Keypair::from_seed(&[1u8; 32]);
+        let mut tx = make_tx(&kp, 0, 10);
+        // Valid signature, but claims to be from an address the signing
+        // key does not control.
+        tx.from = Address::from_public_key(&[7u8; 32]);
+
+        assert!(matches!(pool.insert(tx), Err(RejectReason::Invalid(_))));
+        assert_eq!(pool.len(), 0);
     }
 
     #[test]

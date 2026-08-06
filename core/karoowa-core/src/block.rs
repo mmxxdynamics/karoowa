@@ -5,7 +5,7 @@
 //! root, and proposer. Block hashes are SHA3-256 of the bincode-serialized
 //! header.
 
-use karoowa_crypto::{sha3_256, Address, Hash, MerkleTree};
+use karoowa_crypto::{sha3_256, Address, Hash, MerkleTree, SignatureError};
 use serde::{Deserialize, Serialize};
 
 use crate::transaction::Transaction;
@@ -75,6 +75,29 @@ impl Block {
     /// Validate that the header's `tx_root` matches the transactions.
     pub fn validate_tx_root(&self) -> bool {
         self.header.tx_root == self.compute_tx_root()
+    }
+
+    /// Verify that every transaction carries a valid signature bound to its
+    /// `from` address.
+    ///
+    /// The mempool rejects forgeries on submission, but a block body is
+    /// attacker-controlled: a Byzantine proposer can skip the mempool and put
+    /// transactions straight into a block. Every [`ConsensusEngine`]
+    /// implementation must therefore call this from `validate_block` instead of
+    /// trusting the proposer's pool.
+    ///
+    /// This lives on `Block` rather than being inlined per engine so that a new
+    /// engine cannot silently omit the check.
+    ///
+    /// On failure returns the index of the first offending transaction
+    /// alongside the error, so callers can report which one was rejected.
+    ///
+    /// [`ConsensusEngine`]: https://docs.rs/karoowa-consensus
+    pub fn verify_transaction_signatures(&self) -> Result<(), (usize, SignatureError)> {
+        for (index, tx) in self.transactions.iter().enumerate() {
+            tx.verify_signature().map_err(|e| (index, e))?;
+        }
+        Ok(())
     }
 }
 
@@ -176,6 +199,56 @@ mod tests {
         let block = make_block(vec![]);
         assert_eq!(block.header.tx_root, Hash::ZERO);
         assert!(block.validate_tx_root());
+    }
+
+    #[test]
+    fn verify_transaction_signatures_accepts_valid_body() {
+        let kp = Keypair::from_seed(&[1u8; 32]);
+        let block = make_block(vec![make_tx(&kp, 0), make_tx(&kp, 1)]);
+        assert!(block.verify_transaction_signatures().is_ok());
+    }
+
+    #[test]
+    fn verify_transaction_signatures_accepts_empty_body() {
+        let block = make_block(vec![]);
+        assert!(block.verify_transaction_signatures().is_ok());
+    }
+
+    #[test]
+    fn verify_transaction_signatures_reports_offending_index() {
+        let kp = Keypair::from_seed(&[1u8; 32]);
+        // Valid signature, but `from` claims an address this key does not own.
+        let mut forged = make_tx(&kp, 1);
+        forged.from = Address::from_public_key(&[7u8; 32]);
+        let block = make_block(vec![make_tx(&kp, 0), forged, make_tx(&kp, 2)]);
+
+        let (index, _) = block.verify_transaction_signatures().unwrap_err();
+        assert_eq!(index, 1);
+    }
+
+    #[test]
+    fn verify_transaction_signatures_rejects_malformed_signatures() {
+        let kp = Keypair::from_seed(&[1u8; 32]);
+
+        for bad in [vec![], vec![0u8; 63], vec![0u8; 64], vec![0u8; 65]] {
+            let mut tx = make_tx(&kp, 0);
+            tx.signature = bad.clone();
+            let block = make_block(vec![tx]);
+            assert!(
+                block.verify_transaction_signatures().is_err(),
+                "signature of length {} should be rejected",
+                bad.len()
+            );
+        }
+    }
+
+    #[test]
+    fn verify_transaction_signatures_rejects_invalid_pubkey() {
+        let kp = Keypair::from_seed(&[1u8; 32]);
+        let mut tx = make_tx(&kp, 0);
+        tx.signer_pubkey = vec![0u8; 32];
+        let block = make_block(vec![tx]);
+        assert!(block.verify_transaction_signatures().is_err());
     }
 
     #[test]
