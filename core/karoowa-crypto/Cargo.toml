@@ -10,7 +10,7 @@ homepage.workspace = true
 description = "Karoowa crypto primitives — hash, keypair, signature, Merkle tree, address"
 
 [dependencies]
-sha3 = "0.10"
+sha3 = "0.12"
 blake3 = "1"
 ed25519-dalek = { version = "2", features = ["rand_core"] }
 rand_core = { version = "0.6", features = ["getrandom"] }
