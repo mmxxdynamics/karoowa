@@ -267,7 +267,19 @@ install /tmp/karoowa /usr/local/bin/
 systemctl start karoowa
 ```
 
-The node resumes from the last persisted block. RocksDB is forward-compatible within a minor version.
+The node resumes from the last persisted block.
+
+**Downgrade floor: RocksDB 8.6.0.** Karoowa 0.6.0-dev onward embeds RocksDB 10.4.2,
+which writes SST files at `format_version=6`. Older engines cannot read them, so
+rolling back to a binary built against RocksDB earlier than 8.6.0 will fail to open
+an existing data directory. Every Karoowa binary ever shipped embeds 8.10.0 or
+newer, so rollback to any prior release is safe — but this is a one-way door if
+the pin is ever moved backwards.
+
+Note the asymmetry: upgrading is unconditionally safe (the format version is read
+per-file from the SST footer, so pre-existing files stay readable, and the data
+directory migrates to `format_version=6` gradually through normal compaction).
+It is only *downgrading past 8.6.0* that is blocked.
 
 ### 6.2 Hard upgrades (breaking)
 
