@@ -15,4 +15,11 @@ ignore = [
 
     # --- bincode 1 → 2/3 bump (Dependabot PR #11) ---
     "RUSTSEC-2025-0141",  # bincode: unmaintained (v1 series)
+
+    # --- wasmtime 44 → 47 bump (not yet raised) ---
+    # Patched only in >=46.0.2 or >=47.0.3 — no in-place fix for the 44
+    # series. Low severity (3.8), needs two Engines in one process, and the
+    # node builds a single Engine. Deferred to its own reviewed PR because
+    # bumping the VM three majors is consensus-critical.
+    "RUSTSEC-2026-0222",  # wasmtime: stores can mix up type indices between engines
 ]

@@ -123,9 +123,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: rustsec/audit-check@v2.0.0
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: taiki-e/install-action@cargo-audit
+      # Run cargo-audit directly rather than via rustsec/audit-check: the action
+      # publishes results through the Checks API, which needs `checks: write`.
+      # Dependabot PRs get a read-only GITHUB_TOKEN regardless of the permissions
+      # block, so the API call is not reliably available to us. Ignores come from
+      # .cargo/audit.toml, which cargo-audit reads natively.
+      - run: cargo audit
 
   typos:
     name: Typos
