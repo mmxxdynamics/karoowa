@@ -178,14 +178,13 @@ impl ConsensusEngine for PoAEngine {
         // its `from` address. The mempool already rejects forgeries, but a
         // malicious or buggy proposer can put transactions straight into a
         // block, so validation must not trust the proposer's pool.
-        for tx in &block.transactions {
-            if let Err(e) = tx.verify_signature() {
-                return Err(ConsensusError::InvalidBlock(format!(
-                    "transaction {} failed signature verification: {e:?}",
-                    tx.hash()
-                )));
-            }
-        }
+        block
+            .verify_transaction_signatures()
+            .map_err(|(index, e)| {
+                ConsensusError::InvalidBlock(format!(
+                    "transaction at index {index} failed signature verification: {e:?}"
+                ))
+            })?;
 
         // 7. Consensus data must be correct.
         Self::verify_consensus_data(block, state)?;
