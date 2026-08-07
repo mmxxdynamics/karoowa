@@ -169,7 +169,9 @@ jobs:
       - name: Generate SHA-256 checksums
         run: |
           cd artifacts
-          sha256sum karoowa-* > checksums-sha256.txt
+          # Scoped to the archives: the SBOM lands under artifacts/ too, and a
+          # bare karoowa-* would match a directory and fail with 'Is a directory'.
+          sha256sum karoowa-*.tar.gz karoowa-*.zip > checksums-sha256.txt
           cat checksums-sha256.txt
 
       - name: Install cosign

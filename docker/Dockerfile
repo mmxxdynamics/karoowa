@@ -74,10 +74,16 @@ WORKDIR /home/nonroot
 
 EXPOSE 8545 30303 9090
 
-# Distroless has no shell, so HEALTHCHECK uses the binary itself. The CLI
-# `health` subcommand is a thin wrapper over `GET /health` on the local RPC port.
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD ["karoowa", "health", "--rpc-port", "8545"]
+# No HEALTHCHECK. There is no way to self-probe from inside this image: it is
+# distroless (no shell, no curl) and the binary has no `health` subcommand —
+# `karoowa` exposes exactly Node, Wallet, Genesis, Client, Devnet, Network and
+# Agent. A HEALTHCHECK invoking `karoowa health` was present here and would have
+# made every published container report unhealthy forever, since clap exits 2 on
+# an unknown subcommand. It went unnoticed because no image has ever been pushed.
+#
+# Orchestrators should probe `GET /health` on the RPC port directly. Kubernetes
+# ignores Docker HEALTHCHECK anyway and wants an httpGet probe; see
+# docs/operator-guide.md §4.2 and §5.3.
 
 ENTRYPOINT ["karoowa"]
 CMD ["--help"]

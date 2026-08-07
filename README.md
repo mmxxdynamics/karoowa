@@ -51,7 +51,7 @@ for what's in flight.
 
 ```sh
 # Pre-built binaries (Linux, macOS, Windows). Verifies SHA-256 checksums.
-curl -fsSL https://install.karoowa.io | sh
+curl -fsSL https://install.karoowa.io | bash
 
 # Or, build from a tagged source release
 cargo install --git https://github.com/mmxxdynamics/karoowa --tag v0.5.0 karoowa
@@ -59,6 +59,7 @@ cargo install --git https://github.com/mmxxdynamics/karoowa --tag v0.5.0 karoowa
 
 Releases produced by the v0.6+ release workflow ship Sigstore keyless
 signatures, SLSA build-provenance attestations, and a CycloneDX SBOM
+(uploaded as a build artifact rather than attached to the release)
 (see [`RELEASE.md`](RELEASE.md) for the full verification commands):
 
 ```sh

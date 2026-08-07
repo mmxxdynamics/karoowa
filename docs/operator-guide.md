@@ -1,7 +1,7 @@
 # Karoowa: Operator Guide
 
 **Audience:** ops engineers running a Karoowa node in production (validator, full node, or enterprise deployment).
-**Target version:** v1.0 (in progress; current pre-release tag is `v0.5.0`).
+**Target version:** v1.0 (in progress; latest tag is `v0.5.0`, though no release assets have been published yet — see #41).
 **Last updated:** 2026-08-07.
 
 > **Status note.** Capabilities marked _v1.0_ (HSM, HA lease backends,
@@ -36,7 +36,7 @@
 
 ```bash
 # One-liner installer (verifies SHA-256 checksum)
-curl -fsSL https://install.karoowa.io | sh
+curl -fsSL https://install.karoowa.io | bash
 
 # Or pin to a specific tag
 VERSION=v0.6.0

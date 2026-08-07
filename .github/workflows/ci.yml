@@ -45,6 +45,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
   test:
@@ -88,6 +89,7 @@ jobs:
         with:
           cache-on-failure: true
           key: msrv
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: cargo check --workspace --all-targets --locked
 
   docs:
@@ -102,6 +104,7 @@ jobs:
         with:
           cache-on-failure: true
           key: docs
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: cargo doc --workspace --no-deps --all-features
 
   build:
@@ -114,6 +117,7 @@ jobs:
         with:
           cache-on-failure: true
           key: build-release
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: cargo build --workspace --release --locked
 
   cross-import-guardrail:
@@ -175,6 +179,7 @@ jobs:
         with:
           cache-on-failure: true
           key: coverage
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - uses: taiki-e/install-action@cargo-llvm-cov
       - name: Generate coverage (lcov)
         run: cargo llvm-cov --workspace --lcov --output-path lcov.info

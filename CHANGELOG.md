@@ -8,9 +8,53 @@ v1.0 ships. Pre-1.0 releases may make breaking changes between minor versions.
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING (artifacts): the musl release targets are no longer published.**
+  `x86_64-unknown-linux-musl` and `aarch64-unknown-linux-musl` are removed from
+  the release matrix. Both had failed on every tag from v0.1.0 to v0.5.0, and
+  because `release` depends on the build job they took the entire release with
+  them — which is why no Karoowa release has ever been published. Linux
+  operators should use the new `-gnu` tarballs or the container image. See #41
+  for the plan to reintroduce a static build as a non-blocking artifact.
+- **Linux tarballs now require glibc >= 2.39** (built on Ubuntu 24.04). They
+  will not run on Debian 12, RHEL 9 or Ubuntu 22.04; use the container image or
+  build from source on those.
+- `scripts/install.sh` and the Homebrew formula now fetch `-gnu` artifacts, and
+  both had been pointing at the wrong GitHub org (`karoowa/karoowa`).
+
+### Added
+
+- **`aarch64-unknown-linux-gnu` release target**, built natively on
+  `ubuntu-24.04-arm`. arm64 Linux operators were previously offered only the
+  musl build, which never worked.
+- arm64 Linux to the CI test matrix, so that target is exercised on every PR
+  rather than for the first time at tag time.
+
+### Fixed
+
+- **The SBOM job could never have succeeded**, and `release` depends on it.
+  `cargo cyclonedx --output-pattern bom -f -` used a flag that has never existed
+  in cargo-cyclonedx, and `-f` is the short form of `--format`.
+- **`scripts/install.sh` could never verify a checksum on any platform.** It
+  saved the download under a name that does not appear in
+  `checksums-sha256.txt`, so `sha256sum -c` always failed and the installer
+  refused to install. It also assumed GNU `sha256sum` (absent on macOS) and
+  chmod'd the wrong filename on Windows.
+- **The published container image would have reported itself unhealthy
+  forever.** Its `HEALTHCHECK` invoked a `karoowa health` subcommand that does
+  not exist; clap exits 2 on an unknown subcommand. Removed — distroless has no
+  shell to probe with; orchestrators should use `GET /health`.
+- `docker/Dockerfile` pinned Rust 1.85 against a 1.94 workspace. `release.yml`
+  now passes the MSRV read from `Cargo.toml` as a build-arg, and
+  `rust-toolchain.toml` is kept out of the build context so the base image is
+  the single toolchain pin.
+- `workflow_dispatch` releases built the wrong tree (the dispatch branch rather
+  than the requested tag) and pushed no version-tagged image.
+
 ### Security
 
-- **MSRV bumped Rust 1.85 → 1.92** to enable `wasmtime 44`, which closes
+- **MSRV bumped Rust 1.85 → 1.94** to enable `wasmtime 47.0.3`, which closes
   15 RUSTSEC advisories pulled in transitively via `karoowa-vm`:
   - 14 wasmtime vulnerabilities including two sandbox escapes
     (RUSTSEC-2026-0095 Winch, RUSTSEC-2026-0096 aarch64 Cranelift),

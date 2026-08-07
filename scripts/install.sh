@@ -2,9 +2,9 @@
 # install.sh — One-command Karoowa installer.
 #
 # Usage:
-#   curl -fsSL https://install.karoowa.io | sh
+#   curl -fsSL https://install.karoowa.io | bash
 #   # or:
-#   curl -fsSL https://raw.githubusercontent.com/mmxxdynamics/karoowa/main/scripts/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/mmxxdynamics/karoowa/main/scripts/install.sh | bash
 #
 # Installs the latest karoowa binary to ~/.karoowa/bin/karoowa.
 
@@ -87,9 +87,10 @@ main() {
     trap 'rm -rf "$tmpdir"' EXIT
 
     # The archive must be saved under the exact name recorded in
-    # checksums-sha256.txt (release.yml runs `sha256sum karoowa-*`), because
-    # `sha256sum -c` resolves the filename from the checksum line, not from
-    # whatever we happened to call the download.
+    # checksums-sha256.txt (release.yml runs
+    # `sha256sum karoowa-*.tar.gz karoowa-*.zip`), because `sha256sum -c`
+    # resolves the filename from the checksum line, not from whatever we
+    # happened to call the download.
     archive_name="karoowa-${version}-${platform}.${archive_ext}"
 
     # macOS ships `shasum`, not `sha256sum`.
@@ -109,8 +110,14 @@ main() {
     local checksums_url="https://github.com/${REPO}/releases/download/${version}/checksums-sha256.txt"
     if ! curl -fsSL "$checksums_url" -o "$tmpdir/checksums.txt"; then
         echo "ERROR: could not download checksums file from $checksums_url" >&2
-        echo "Refusing to install an unverified binary. Set KAROOWA_SKIP_CHECKSUM=1 to bypass (NOT recommended)." >&2
-        [ "${KAROOWA_SKIP_CHECKSUM:-0}" = "1" ] || exit 1
+        if [ "${KAROOWA_SKIP_CHECKSUM:-0}" = "1" ]; then
+            echo "KAROOWA_SKIP_CHECKSUM=1 — continuing without verification (NOT recommended)." >&2
+        else
+            echo "Refusing to install an unverified binary. Set KAROOWA_SKIP_CHECKSUM=1 to bypass (NOT recommended)." >&2
+            exit 1
+        fi
+        # Note: this escape hatch covers a *missing* checksums file only. A
+        # checksum *mismatch* below is always fatal.
     else
         if ! (cd "$tmpdir" && grep -F "$archive_name" checksums.txt | $sha -c --quiet); then
             echo "ERROR: checksum mismatch — refusing to install." >&2
