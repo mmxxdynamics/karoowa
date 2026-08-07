@@ -76,6 +76,14 @@ v1.0 ships. Pre-1.0 releases may make breaking changes between minor versions.
   `checksums-sha256.txt`, so `sha256sum -c` always failed and the installer
   refused to install. It also assumed GNU `sha256sum` (absent on macOS) and
   chmod'd the wrong filename on Windows.
+- **The container image could never have been built.** It compiled musl-static
+  on Alpine, where `librocksdb-sys`'s bindgen step `dlopen`s libclang and a
+  statically linked build script cannot `dlopen` at all. It also set
+  `RUSTFLAGS="-C target-feature=+crt-static"` globally, which additionally
+  broke proc-macro crates, and never installed `libclang-dev`. The build now
+  runs on Debian 12 (`rust:<msrv>-bookworm`), matching the
+  `distroless/cc-debian12` runtime's glibc, and is verified by an actual local
+  build — the first Karoowa image that has ever built and run.
 - **The published container image would have reported itself unhealthy
   forever.** Its `HEALTHCHECK` invoked a `karoowa health` subcommand that does
   not exist; clap exits 2 on an unknown subcommand. Removed — distroless has no

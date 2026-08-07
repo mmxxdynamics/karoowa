@@ -1,8 +1,19 @@
 # Karoowa container image.
 #
 # Stage 1 (planner)  — analyse Cargo workspace with `cargo-chef` for cache reuse.
-# Stage 2 (builder)  — cook deps, then build the static `karoowa` binary (musl).
+# Stage 2 (builder)  — cook deps, then build `karoowa` against Debian glibc.
 # Stage 3 (runtime)  — copy the binary into a minimal `distroless/cc` image.
+#
+# Build and runtime are both Debian 12, so the glibc the binary links against is
+# by construction the glibc it runs on.
+#
+# This used to build musl-static on Alpine, which could not work: librocksdb-sys
+# runs bindgen, bindgen dlopens libclang, and a statically linked build script
+# cannot dlopen at all — "Dynamic loading not supported". Alpine also forced a
+# musl-linked image, which is a poor fit for RocksDB (128 KB default thread
+# stacks for its C++ compaction threads, and a markedly slower allocator under
+# multi-threaded load). Neither was ever noticed because this image has never
+# been built by CI. See #41.
 #
 # Build:
 #   docker build -f docker/Dockerfile -t ghcr.io/mmxxdynamics/karoowa:dev .
@@ -11,7 +22,6 @@
 # build. release.yml overrides this with the MSRV read straight from Cargo.toml
 # so the two cannot drift; keep this default in step for local `docker build`.
 ARG RUST_VERSION=1.94
-ARG ALPINE_VERSION=3.20
 ARG DISTROLESS_TAG=nonroot
 
 # OCI labels for the published image.
@@ -19,9 +29,13 @@ ARG VCS_REF=unknown
 ARG BUILD_DATE=unknown
 
 # -- Stage 1: planner ---------------------------------------------------------
-FROM rust:${RUST_VERSION}-alpine${ALPINE_VERSION} AS planner
+FROM rust:${RUST_VERSION}-bookworm AS planner
 
-RUN apk add --no-cache musl-dev clang llvm lld pkgconfig
+# libclang-dev is required, not optional: librocksdb-sys runs bindgen, which
+# dlopens libclang.so at build time. g++/make come from the buildpack-deps base.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends clang libclang-dev pkg-config \
+    && rm -rf /var/lib/apt/lists/*
 RUN cargo install cargo-chef --locked --version ^0.1
 
 WORKDIR /build
@@ -29,26 +43,22 @@ COPY . .
 RUN cargo chef prepare --recipe-path recipe.json
 
 # -- Stage 2: builder ---------------------------------------------------------
-FROM rust:${RUST_VERSION}-alpine${ALPINE_VERSION} AS builder
+FROM rust:${RUST_VERSION}-bookworm AS builder
 
-RUN apk add --no-cache musl-dev clang llvm lld pkgconfig
+# libclang-dev is required, not optional: librocksdb-sys runs bindgen, which
+# dlopens libclang.so at build time. g++/make come from the buildpack-deps base.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends clang libclang-dev pkg-config \
+    && rm -rf /var/lib/apt/lists/*
 RUN cargo install cargo-chef --locked --version ^0.1
 
 WORKDIR /build
 
-# No RUSTFLAGS="-C target-feature=+crt-static" here. It is redundant —
-# `rustc --print cfg --target x86_64-unknown-linux-musl` already reports
-# target_feature="crt-static" — and setting it globally also applies it to
-# proc-macro crates, which must be built as dylibs:
-#
-#   error: cannot produce proc-macro for `async-trait` as the target
-#          `x86_64-unknown-linux-musl` does not support these crate types
-#
-# That aborted the build at `cargo chef cook`. It was never noticed because the
-# docker job has never run: it was added after the last tag, and before that the
-# musl tarball legs failed first. Verified by building this image locally.
-ENV CC=clang
-ENV CXX=clang++
+# No RUSTFLAGS="-C target-feature=+crt-static". It was set when this built on
+# Alpine, where it was both redundant (musl targets already default to
+# crt-static) and fatal — applied globally it also hits proc-macro crates, which
+# must be dylibs, so the build died on `async-trait`. Not applicable to a glibc
+# target either way; RocksDB is compiled by the base image's g++.
 
 # Cook dependencies (cached layer — invalidated only when Cargo.lock changes).
 COPY --from=planner /build/recipe.json recipe.json
@@ -60,8 +70,8 @@ RUN cargo build --release --locked --package karoowa \
     && strip target/release/karoowa
 
 # -- Stage 3: runtime ---------------------------------------------------------
-# Distroless `cc` because RocksDB still pulls in libstdc++ on certain configs.
-# If you build a fully static binary, switch to `distroless/static`.
+# Distroless `cc` (Debian 12) supplies the glibc, libgcc and libstdc++ that the
+# binary and RocksDB need. Matches the builder's Debian 12 exactly.
 FROM gcr.io/distroless/cc-debian12:${DISTROLESS_TAG} AS runtime
 
 # OCI image labels — picked up by GHCR.

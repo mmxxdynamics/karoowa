@@ -58,11 +58,11 @@ those.
 > benchmarks 5-10x slower than glibc under the multi-threaded, allocation-heavy
 > access pattern RocksDB generates.
 >
-> Note this applies to the container image too: `docker/Dockerfile` builds on
-> Alpine with `-C target-feature=+crt-static`, so §2.3 ships a musl-linked
-> binary and carries the same characteristics. For a latency-sensitive
-> validator, prefer the `-gnu` tarball on the host. Both the musl tarball and
-> the image's libc choice are tracked in
+> The container image (§2.3) is **not** affected — it is built on Debian 12 and
+> links glibc, matching its `distroless/cc-debian12` runtime. It previously
+> built musl-static on Alpine, which could not work at all: `librocksdb-sys`
+> runs bindgen, bindgen `dlopen`s libclang, and a statically linked build script
+> cannot `dlopen`. Reintroducing a musl *tarball* is tracked in
 > [#41](https://github.com/mmxxdynamics/karoowa/issues/41).
 
 Verify the Sigstore keyless signature before running in production:
