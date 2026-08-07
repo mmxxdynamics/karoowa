@@ -1,8 +1,8 @@
 # Karoowa: Operator Guide
 
 **Audience:** ops engineers running a Karoowa node in production (validator, full node, or enterprise deployment).
-**Target version:** v1.0 (in progress; current pre-release tag is `v0.5.0`).
-**Last updated:** 2026-05-05.
+**Target version:** v1.0 (in progress; latest tag is `v0.5.0`, though no release assets have been published yet — see #41).
+**Last updated:** 2026-08-07.
 
 > **Status note.** Capabilities marked _v1.0_ (HSM, HA lease backends,
 > hard-upgrade migration framework, k8s reference manifests) describe the
@@ -36,19 +36,39 @@
 
 ```bash
 # One-liner installer (verifies SHA-256 checksum)
-curl -fsSL https://install.karoowa.io | sh
+curl -fsSL https://install.karoowa.io | bash
 
 # Or pin to a specific tag
-VERSION=v0.5.0
-curl -fsSL https://github.com/mmxxdynamics/karoowa/releases/download/${VERSION}/karoowa-${VERSION}-x86_64-unknown-linux-musl.tar.gz \
+VERSION=v0.6.0
+curl -fsSL https://github.com/mmxxdynamics/karoowa/releases/download/${VERSION}/karoowa-${VERSION}-x86_64-unknown-linux-gnu.tar.gz \
   | tar xz -C /usr/local/bin
 karoowa --version
 ```
 
+Published Linux targets are `x86_64-unknown-linux-gnu` and
+`aarch64-unknown-linux-gnu`, plus macOS (both architectures) and Windows.
+The Linux tarballs are built against **glibc 2.39** (Ubuntu 24.04), so they will
+not run on Debian 12, RHEL 9 or Ubuntu 22.04 — use §2.3 or build from source on
+those.
+
+> **No musl tarball today.** A statically-linked musl binary is not published.
+> Beyond that build never having worked, musl is a poor fit for this workload:
+> its default thread stack is 128 KB (RocksDB creates its compaction threads
+> from C++, so they inherit that rather than Rust's 2 MiB), and its allocator
+> benchmarks 5-10x slower than glibc under the multi-threaded, allocation-heavy
+> access pattern RocksDB generates.
+>
+> The container image (§2.3) is **not** affected — it is built on Debian 12 and
+> links glibc, matching its `distroless/cc-debian12` runtime. It previously
+> built musl-static on Alpine, which could not work at all: `librocksdb-sys`
+> runs bindgen, bindgen `dlopen`s libclang, and a statically linked build script
+> cannot `dlopen`. Reintroducing a musl *tarball* is tracked in
+> [#41](https://github.com/mmxxdynamics/karoowa/issues/41).
+
 Verify the Sigstore keyless signature before running in production:
 
 ```bash
-gh attestation verify karoowa-${VERSION}-x86_64-unknown-linux-musl.tar.gz \
+gh attestation verify karoowa-${VERSION}-x86_64-unknown-linux-gnu.tar.gz \
     --repo mmxxdynamics/karoowa
 ```
 
@@ -71,7 +91,7 @@ docker run --rm -it \
   -v /var/lib/karoowa:/data \
   -p 8545:8545 \
   -p 30303:30303 \
-  ghcr.io/mmxxdynamics/karoowa:v0.5.0 \
+  ghcr.io/mmxxdynamics/karoowa:0.6.0 \
   node \
       --validator-key /data/validator.key \
       --consensus poa \
@@ -189,7 +209,7 @@ spec:
       terminationGracePeriodSeconds: 90
       containers:
         - name: karoowa
-          image: ghcr.io/mmxxdynamics/karoowa:v0.5.0
+          image: ghcr.io/mmxxdynamics/karoowa:0.6.0
           args:
             - node
             - --validator-key
@@ -205,6 +225,18 @@ spec:
           ports:
             - { name: rpc,  containerPort: 8545 }
             - { name: p2p,  containerPort: 30303 }
+          # The image carries no Docker HEALTHCHECK — it is distroless, so there
+          # is nothing in it to self-probe with, and the kubelet would ignore one
+          # anyway. Probe the endpoints directly (see §5.3).
+          readinessProbe:
+            httpGet: { path: /ready, port: rpc }
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /health, port: rpc }
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            failureThreshold: 3
           volumeMounts:
             - { name: data, mountPath: /data }
           resources:

@@ -57,3 +57,4 @@ tarpaulin-report.html
 # Legacy / scratch (not part of the project)
 files/
 scratch/
+bom.json

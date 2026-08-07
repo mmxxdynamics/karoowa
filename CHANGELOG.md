@@ -8,22 +8,13 @@ v1.0 ships. Pre-1.0 releases may make breaking changes between minor versions.
 
 ## [Unreleased]
 
-### Security
-
-- **MSRV bumped Rust 1.85 → 1.92** to enable `wasmtime 44`, which closes
-  15 RUSTSEC advisories pulled in transitively via `karoowa-vm`:
-  - 14 wasmtime vulnerabilities including two sandbox escapes
-    (RUSTSEC-2026-0095 Winch, RUSTSEC-2026-0096 aarch64 Cranelift),
-    pooling-allocator data leakage (RUSTSEC-2026-0088), component-model
-    transcoding OOB read/write (RUSTSEC-2026-0091/-0092/-0093),
-    f64 segfaults (RUSTSEC-2026-0006/-0087), and others
-    (RUSTSEC-2025-0046, -0118, RUSTSEC-2026-0020/-0021/-0085/-0086/
-    -0089/-0094).
-  - 1 unmaintained transitive (RUSTSEC-2025-0057 fxhash). The
-    RUSTSEC-2024-0436 paste advisory remains tracked because `libp2p-tcp`
-    still pulls paste in on Linux via `if-watch → netlink-packet-core`.
-
 ### Added
+
+- **`aarch64-unknown-linux-gnu` release target**, built natively on
+  `ubuntu-24.04-arm`. arm64 Linux operators were previously offered only the
+  musl build, which never worked.
+- arm64 Linux to the CI test matrix, so that target is exercised on every PR
+  rather than for the first time at tag time.
 
 - `[workspace.lints]` block in the root `Cargo.toml` propagates a single set
   of rust/clippy/rustdoc lints to every member crate.
@@ -45,6 +36,19 @@ v1.0 ships. Pre-1.0 releases may make breaking changes between minor versions.
 
 ### Changed
 
+- **BREAKING (artifacts): the musl release targets are no longer published.**
+  `x86_64-unknown-linux-musl` and `aarch64-unknown-linux-musl` are removed from
+  the release matrix. Both had failed on every tag from v0.1.0 to v0.5.0, and
+  because `release` depends on the build job they took the entire release with
+  them — which is why no Karoowa release has ever been published. Linux
+  operators should use the new `-gnu` tarballs or the container image. See #41
+  for the plan to reintroduce a static build as a non-blocking artifact.
+- **Linux tarballs now require glibc >= 2.39** (built on Ubuntu 24.04). They
+  will not run on Debian 12, RHEL 9 or Ubuntu 22.04; use the container image or
+  build from source on those.
+- `scripts/install.sh` and the Homebrew formula now fetch `-gnu` artifacts, and
+  both had been pointing at the wrong GitHub org (`karoowa/karoowa`).
+
 - All `enterprise/*` crates marked `publish = false` and switched from
   `license-file` to a `LicenseRef-Karoowa-Enterprise` SPDX expression.
 - `LICENSE-ENTERPRISE.md` rewritten: explicit "review-only until BSL 1.1
@@ -61,6 +65,50 @@ v1.0 ships. Pre-1.0 releases may make breaking changes between minor versions.
 - AI-assistant attribution lines from spec / dev-plan files. Anthropic
   references that document the *Anthropic LLM provider* feature in
   `karoowa-agents` are kept: they describe a real product integration.
+
+### Fixed
+
+- **The SBOM job could never have succeeded**, and `release` depends on it.
+  `cargo cyclonedx --output-pattern bom -f -` used a flag that has never existed
+  in cargo-cyclonedx, and `-f` is the short form of `--format`.
+- **`scripts/install.sh` could never verify a checksum on any platform.** It
+  saved the download under a name that does not appear in
+  `checksums-sha256.txt`, so `sha256sum -c` always failed and the installer
+  refused to install. It also assumed GNU `sha256sum` (absent on macOS) and
+  chmod'd the wrong filename on Windows.
+- **The container image could never have been built.** It compiled musl-static
+  on Alpine, where `librocksdb-sys`'s bindgen step `dlopen`s libclang and a
+  statically linked build script cannot `dlopen` at all. It also set
+  `RUSTFLAGS="-C target-feature=+crt-static"` globally, which additionally
+  broke proc-macro crates, and never installed `libclang-dev`. The build now
+  runs on Debian 12 (`rust:<msrv>-bookworm`), matching the
+  `distroless/cc-debian12` runtime's glibc, and is verified by an actual local
+  build — the first Karoowa image that has ever built and run.
+- **The published container image would have reported itself unhealthy
+  forever.** Its `HEALTHCHECK` invoked a `karoowa health` subcommand that does
+  not exist; clap exits 2 on an unknown subcommand. Removed — distroless has no
+  shell to probe with; orchestrators should use `GET /health`.
+- `docker/Dockerfile` pinned Rust 1.85 against a 1.94 workspace. `release.yml`
+  now passes the MSRV read from `Cargo.toml` as a build-arg, and
+  `rust-toolchain.toml` is kept out of the build context so the base image is
+  the single toolchain pin.
+- `workflow_dispatch` releases built the wrong tree (the dispatch branch rather
+  than the requested tag) and pushed no version-tagged image.
+
+### Security
+
+- **MSRV bumped Rust 1.85 → 1.94** to enable `wasmtime 47.0.3`, which closes
+  15 RUSTSEC advisories pulled in transitively via `karoowa-vm`:
+  - 14 wasmtime vulnerabilities including two sandbox escapes
+    (RUSTSEC-2026-0095 Winch, RUSTSEC-2026-0096 aarch64 Cranelift),
+    pooling-allocator data leakage (RUSTSEC-2026-0088), component-model
+    transcoding OOB read/write (RUSTSEC-2026-0091/-0092/-0093),
+    f64 segfaults (RUSTSEC-2026-0006/-0087), and others
+    (RUSTSEC-2025-0046, -0118, RUSTSEC-2026-0020/-0021/-0085/-0086/
+    -0089/-0094).
+  - 1 unmaintained transitive (RUSTSEC-2025-0057 fxhash). The
+    RUSTSEC-2024-0436 paste advisory remains tracked because `libp2p-tcp`
+    still pulls paste in on Linux via `if-watch → netlink-packet-core`.
 
 ## [0.5.0]: 2026-04-12
 
