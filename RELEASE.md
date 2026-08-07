@@ -58,6 +58,11 @@ Each release builds the following targets in the `release.yml` matrix:
 | macOS aarch64          | `aarch64-apple-darwin`          | tar.gz   |
 | Windows x86_64 (msvc)  | `x86_64-pc-windows-msvc`        | zip      |
 
+The `-gnu` tarballs are built on `ubuntu-latest` (24.04, glibc 2.39) and
+`ubuntu-24.04-arm`, so they require **glibc >= 2.39**. They will not run on
+Debian 12, RHEL 9 or Ubuntu 22.04. Operators on older distributions should use
+the container image or build from source until a static build returns.
+
 No musl targets are published — see
 [#41](https://github.com/mmxxdynamics/karoowa/issues/41) for why, and for the
 plan to reintroduce a static build as a non-blocking artifact.

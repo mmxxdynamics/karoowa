@@ -66,6 +66,10 @@ jobs:
         with:
           cache-on-failure: true
           key: test-${{ matrix.os }}
+          # The repo cache sits near GitHub's 10 GB ceiling and adding the arm64
+          # leg pushed it over, so PR runs were evicting each other. Only refresh
+          # from main; PRs still read.
+          save-if: ${{ github.ref == 'refs/heads/main' }}
       - run: cargo test --workspace --no-fail-fast
 
   msrv:

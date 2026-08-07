@@ -82,12 +82,28 @@ main() {
     mkdir -p "$INSTALL_DIR"
 
     # Download and extract.
-    local tmpdir
+    local tmpdir archive_name sha
     tmpdir="$(mktemp -d)"
     trap 'rm -rf "$tmpdir"' EXIT
 
+    # The archive must be saved under the exact name recorded in
+    # checksums-sha256.txt (release.yml runs `sha256sum karoowa-*`), because
+    # `sha256sum -c` resolves the filename from the checksum line, not from
+    # whatever we happened to call the download.
+    archive_name="karoowa-${version}-${platform}.${archive_ext}"
+
+    # macOS ships `shasum`, not `sha256sum`.
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha="sha256sum"
+    elif command -v shasum >/dev/null 2>&1; then
+        sha="shasum -a 256"
+    else
+        echo "ERROR: neither sha256sum nor shasum is available; cannot verify the download." >&2
+        exit 1
+    fi
+
     echo "Downloading..."
-    curl -fsSL "$url" -o "$tmpdir/karoowa.${archive_ext}"
+    curl -fsSL "$url" -o "$tmpdir/${archive_name}"
 
     echo "Verifying checksum..."
     local checksums_url="https://github.com/${REPO}/releases/download/${version}/checksums-sha256.txt"
@@ -96,7 +112,7 @@ main() {
         echo "Refusing to install an unverified binary. Set KAROOWA_SKIP_CHECKSUM=1 to bypass (NOT recommended)." >&2
         [ "${KAROOWA_SKIP_CHECKSUM:-0}" = "1" ] || exit 1
     else
-        if ! (cd "$tmpdir" && grep "karoowa-${version}-${platform}" checksums.txt | sha256sum -c --quiet); then
+        if ! (cd "$tmpdir" && grep -F "$archive_name" checksums.txt | $sha -c --quiet); then
             echo "ERROR: checksum mismatch — refusing to install." >&2
             echo "If this is unexpected, please file a security report — see SECURITY.md." >&2
             exit 1
@@ -104,17 +120,21 @@ main() {
         echo "Checksum OK."
     fi
 
-    echo "Installing to $INSTALL_DIR/karoowa..."
+    local binary="karoowa"
     case "$archive_ext" in
-        tar.gz) tar xzf "$tmpdir/karoowa.tar.gz" -C "$INSTALL_DIR" ;;
-        zip)    unzip -o "$tmpdir/karoowa.zip" -d "$INSTALL_DIR" ;;
+        tar.gz)
+            tar xzf "$tmpdir/${archive_name}" -C "$INSTALL_DIR"
+            chmod +x "$INSTALL_DIR/karoowa"
+            ;;
+        zip)
+            unzip -o "$tmpdir/${archive_name}" -d "$INSTALL_DIR"
+            binary="karoowa.exe"
+            ;;
     esac
 
-    chmod +x "$INSTALL_DIR/karoowa"
-
     echo ""
-    echo "Installed: $INSTALL_DIR/karoowa"
-    "$INSTALL_DIR/karoowa" --version
+    echo "Installed: $INSTALL_DIR/${binary}"
+    "$INSTALL_DIR/${binary}" --version
 
     # Check PATH.
     if ! echo "$PATH" | tr ':' '\n' | grep -qx "$INSTALL_DIR"; then

@@ -1,21 +1,41 @@
 # Keep the build context small. `docker/Dockerfile` does `COPY . .` twice
 # (planner + builder) and the release job builds for two platforms, so anything
 # left here is transferred four times.
+#
+# NOTE: .dockerignore patterns use Go filepath.Match — `*` does not cross `/`,
+# so `*.key` would only match the repo root. Use `**/` where nesting matters.
 target/
 target-linux/
 
 .git/
 .github/
 
+# The base image (rust:${RUST_VERSION}-alpine) IS the toolchain pin. Letting
+# rust-toolchain.toml (channel = "stable") into the context makes `cargo build`
+# resolve a different rustc than `cargo chef cook` did — different fingerprints,
+# so the whole cooked dependency layer including RocksDB is discarded.
+#
+# Do NOT "fix" that with ENV RUSTUP_TOOLCHAIN=${RUST_VERSION}: the image
+# installs the toolchain under its full three-part name (1.94.1), so asking for
+# "1.94" makes rustup download a redundant second toolchain in every stage.
+rust-toolchain.toml
+
 # Never bake keys or local chain state into an image layer.
-*.key
+**/*.key
 data/
 devnet-data/
+.karoowa/
+
+# Local scratch (see .gitignore).
+files/
+scratch/
+.claude/
+.cursor/
 
 docs/
 specs/
 *.md
 !README.md
 
-.DS_Store
+**/.DS_Store
 lcov.info

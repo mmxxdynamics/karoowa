@@ -47,6 +47,9 @@ karoowa --version
 
 Published Linux targets are `x86_64-unknown-linux-gnu` and
 `aarch64-unknown-linux-gnu`, plus macOS (both architectures) and Windows.
+The Linux tarballs are built against **glibc 2.39** (Ubuntu 24.04), so they will
+not run on Debian 12, RHEL 9 or Ubuntu 22.04 — use §2.3 or build from source on
+those.
 
 > **No musl tarball today.** A statically-linked musl binary is not published.
 > Beyond that build never having worked, musl is a poor fit for this workload:

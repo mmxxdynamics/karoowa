@@ -67,9 +67,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          # workflow_dispatch runs against a branch ref by default, which would
-          # build the wrong tree while naming every artifact after the tag.
-          ref: ${{ env.TAG }}
+          # Tag push: pin github.sha, the exact commit the event fired for — a
+          # bare tag name is mutable and resolves branches before tags.
+          # Dispatch: resolve the requested tag, since the default ref would be
+          # the branch, building the wrong tree under the tag's name.
+          ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.sha }}
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -111,9 +113,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          # workflow_dispatch runs against a branch ref by default, which would
-          # build the wrong tree while naming every artifact after the tag.
-          ref: ${{ env.TAG }}
+          # Tag push: pin github.sha, the exact commit the event fired for — a
+          # bare tag name is mutable and resolves branches before tags.
+          # Dispatch: resolve the requested tag, since the default ref would be
+          # the branch, building the wrong tree under the tag's name.
+          ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.sha }}
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -150,9 +154,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          # workflow_dispatch runs against a branch ref by default, which would
-          # build the wrong tree while naming every artifact after the tag.
-          ref: ${{ env.TAG }}
+          # Tag push: pin github.sha, the exact commit the event fired for — a
+          # bare tag name is mutable and resolves branches before tags.
+          # Dispatch: resolve the requested tag, since the default ref would be
+          # the branch, building the wrong tree under the tag's name.
+          ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.sha }}
 
       - name: Download all artifacts
         uses: actions/download-artifact@v8
@@ -188,6 +194,7 @@ jobs:
           subject-path: |
             artifacts/karoowa-*.tar.gz
             artifacts/karoowa-*.zip
+            artifacts/checksums-sha256.txt
 
       - name: Create or update GitHub Release (draft)
         uses: softprops/action-gh-release@v3
@@ -209,12 +216,18 @@ jobs:
     name: Build & push container image
     needs: build
     runs-on: ubuntu-latest
+    # Slowest job by far: the linux/arm64 leg cross-builds RocksDB under QEMU
+    # emulation. Has never run to completion, so bound it rather than let a
+    # stall consume the 6h default. See #41 for moving arm64 to a native runner.
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v7
         with:
-          # workflow_dispatch runs against a branch ref by default, which would
-          # build the wrong tree while naming every artifact after the tag.
-          ref: ${{ env.TAG }}
+          # Tag push: pin github.sha, the exact commit the event fired for — a
+          # bare tag name is mutable and resolves branches before tags.
+          # Dispatch: resolve the requested tag, since the default ref would be
+          # the branch, building the wrong tree under the tag's name.
+          ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.sha }}
 
       - uses: docker/setup-qemu-action@v4
       - uses: docker/setup-buildx-action@v4
@@ -227,10 +240,10 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # Feed the Dockerfile the MSRV from Cargo.toml rather than trusting its
-      # default, which had drifted to 1.85 against a 1.94 workspace. Note this
-      # only bites in combination with RUSTUP_TOOLCHAIN in the Dockerfile —
-      # without that, rust-toolchain.toml silently pulls in latest stable and
-      # the pin is decorative (and busts the cargo-chef cache).
+      # default, which had drifted to 1.85 against a 1.94 workspace. This
+      # selects the base image (rust:<ver>-alpine), which is the actual
+      # toolchain pin; .dockerignore keeps rust-toolchain.toml out of the
+      # context so nothing overrides it mid-build.
       - name: Read workspace MSRV
         id: msrv
         run: |
@@ -244,9 +257,11 @@ jobs:
         uses: docker/metadata-action@v6
         with:
           images: ghcr.io/${{ github.repository }}
+          # value= is required: type=semver reads github.ref, which on
+          # workflow_dispatch is a branch and yields no version tags at all.
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{version}},value=${{ env.TAG }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ env.TAG }}
             type=sha,format=short
 
       - name: Build and push
