@@ -225,6 +225,18 @@ spec:
           ports:
             - { name: rpc,  containerPort: 8545 }
             - { name: p2p,  containerPort: 30303 }
+          # The image carries no Docker HEALTHCHECK — it is distroless, so there
+          # is nothing in it to self-probe with, and the kubelet would ignore one
+          # anyway. Probe the endpoints directly (see §5.3).
+          readinessProbe:
+            httpGet: { path: /ready, port: rpc }
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /health, port: rpc }
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            failureThreshold: 3
           volumeMounts:
             - { name: data, mountPath: /data }
           resources:

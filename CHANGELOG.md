@@ -8,6 +8,32 @@ v1.0 ships. Pre-1.0 releases may make breaking changes between minor versions.
 
 ## [Unreleased]
 
+### Added
+
+- **`aarch64-unknown-linux-gnu` release target**, built natively on
+  `ubuntu-24.04-arm`. arm64 Linux operators were previously offered only the
+  musl build, which never worked.
+- arm64 Linux to the CI test matrix, so that target is exercised on every PR
+  rather than for the first time at tag time.
+
+- `[workspace.lints]` block in the root `Cargo.toml` propagates a single set
+  of rust/clippy/rustdoc lints to every member crate.
+- `SECURITY.md` with a private vulnerability disclosure process and severity
+  schedule.
+- `RELEASE.md` describing the release cadence, signing scheme, and SBOM
+  policy.
+- `.github/dependabot.yml` weekly updates for the `cargo` and
+  `github-actions` ecosystems.
+- `.github/ISSUE_TEMPLATE/` forms for bug reports, feature requests, and
+  security questions, plus a `config.yml` redirecting questions away from
+  Issues.
+- `.github/CODEOWNERS` for review routing.
+- `.editorconfig`, `clippy.toml`, and `rustfmt.toml` to lock in editor +
+  toolchain defaults.
+- Sigstore keyless signing, SLSA build-provenance attestation, and CycloneDX
+  SBOM generation on every tagged release.
+- `KAROOWA_BOOTNODE` environment override for `scripts/join-devnet.sh`.
+
 ### Changed
 
 - **BREAKING (artifacts): the musl release targets are no longer published.**
@@ -23,13 +49,22 @@ v1.0 ships. Pre-1.0 releases may make breaking changes between minor versions.
 - `scripts/install.sh` and the Homebrew formula now fetch `-gnu` artifacts, and
   both had been pointing at the wrong GitHub org (`karoowa/karoowa`).
 
-### Added
+- All `enterprise/*` crates marked `publish = false` and switched from
+  `license-file` to a `LicenseRef-Karoowa-Enterprise` SPDX expression.
+- `LICENSE-ENTERPRISE.md` rewritten: explicit "review-only until BSL 1.1
+  text is published" notice replaces the placeholder.
+- `deny.toml` tightened: stricter advisory policy, OpenSSL/native-tls banned
+  in favour of rustls, unknown git registries denied.
+- README MSRV row corrected to **Rust 1.85+** (was 1.78), status line updated
+  to reflect M1-M6 progress.
+- `scripts/install.sh` now aborts on a checksum mismatch (previously it
+  swallowed the failure with `|| true`).
 
-- **`aarch64-unknown-linux-gnu` release target**, built natively on
-  `ubuntu-24.04-arm`. arm64 Linux operators were previously offered only the
-  musl build, which never worked.
-- arm64 Linux to the CI test matrix, so that target is exercised on every PR
-  rather than for the first time at tag time.
+### Removed
+
+- AI-assistant attribution lines from spec / dev-plan files. Anthropic
+  references that document the *Anthropic LLM provider* feature in
+  `karoowa-agents` are kept: they describe a real product integration.
 
 ### Fixed
 
@@ -66,45 +101,6 @@ v1.0 ships. Pre-1.0 releases may make breaking changes between minor versions.
   - 1 unmaintained transitive (RUSTSEC-2025-0057 fxhash). The
     RUSTSEC-2024-0436 paste advisory remains tracked because `libp2p-tcp`
     still pulls paste in on Linux via `if-watch → netlink-packet-core`.
-
-### Added
-
-- `[workspace.lints]` block in the root `Cargo.toml` propagates a single set
-  of rust/clippy/rustdoc lints to every member crate.
-- `SECURITY.md` with a private vulnerability disclosure process and severity
-  schedule.
-- `RELEASE.md` describing the release cadence, signing scheme, and SBOM
-  policy.
-- `.github/dependabot.yml` weekly updates for the `cargo` and
-  `github-actions` ecosystems.
-- `.github/ISSUE_TEMPLATE/` forms for bug reports, feature requests, and
-  security questions, plus a `config.yml` redirecting questions away from
-  Issues.
-- `.github/CODEOWNERS` for review routing.
-- `.editorconfig`, `clippy.toml`, and `rustfmt.toml` to lock in editor +
-  toolchain defaults.
-- Sigstore keyless signing, SLSA build-provenance attestation, and CycloneDX
-  SBOM generation on every tagged release.
-- `KAROOWA_BOOTNODE` environment override for `scripts/join-devnet.sh`.
-
-### Changed
-
-- All `enterprise/*` crates marked `publish = false` and switched from
-  `license-file` to a `LicenseRef-Karoowa-Enterprise` SPDX expression.
-- `LICENSE-ENTERPRISE.md` rewritten: explicit "review-only until BSL 1.1
-  text is published" notice replaces the placeholder.
-- `deny.toml` tightened: stricter advisory policy, OpenSSL/native-tls banned
-  in favour of rustls, unknown git registries denied.
-- README MSRV row corrected to **Rust 1.85+** (was 1.78), status line updated
-  to reflect M1-M6 progress.
-- `scripts/install.sh` now aborts on a checksum mismatch (previously it
-  swallowed the failure with `|| true`).
-
-### Removed
-
-- AI-assistant attribution lines from spec / dev-plan files. Anthropic
-  references that document the *Anthropic LLM provider* feature in
-  `karoowa-agents` are kept: they describe a real product integration.
 
 ## [0.5.0]: 2026-04-12
 

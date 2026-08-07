@@ -36,7 +36,17 @@ RUN cargo install cargo-chef --locked --version ^0.1
 
 WORKDIR /build
 
-ENV RUSTFLAGS="-C target-feature=+crt-static"
+# No RUSTFLAGS="-C target-feature=+crt-static" here. It is redundant —
+# `rustc --print cfg --target x86_64-unknown-linux-musl` already reports
+# target_feature="crt-static" — and setting it globally also applies it to
+# proc-macro crates, which must be built as dylibs:
+#
+#   error: cannot produce proc-macro for `async-trait` as the target
+#          `x86_64-unknown-linux-musl` does not support these crate types
+#
+# That aborted the build at `cargo chef cook`. It was never noticed because the
+# docker job has never run: it was added after the last tag, and before that the
+# musl tarball legs failed first. Verified by building this image locally.
 ENV CC=clang
 ENV CXX=clang++
 

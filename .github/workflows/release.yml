@@ -47,8 +47,11 @@ jobs:
         # used a *glibc* cross-gcc as the linker for a *musl* target. See #41
         # for the reintroduction plan (non-blocking, static, clearly labelled).
         include:
+          # Pinned, not ubuntu-latest: the glibc floor documented in RELEASE.md
+          # and the operator guide is whatever this image ships (2.39). Letting
+          # it roll to the next LTS would raise that floor silently.
           - target: x86_64-unknown-linux-gnu
-            os: ubuntu-latest
+            os: ubuntu-24.04
             archive: tar.gz
           # Native arm64 — no cross-compilation. Free for public repos.
           - target: aarch64-unknown-linux-gnu
@@ -169,9 +172,16 @@ jobs:
       - name: Generate SHA-256 checksums
         run: |
           cd artifacts
-          # Scoped to the archives: the SBOM lands under artifacts/ too, and a
-          # bare karoowa-* would match a directory and fail with 'Is a directory'.
-          sha256sum karoowa-*.tar.gz karoowa-*.zip > checksums-sha256.txt
+          # nullglob so that a matrix without a Windows (or Unix) leg cannot hand
+          # sha256sum an unexpanded literal, which would fail the release at the
+          # last hop. Scoped to the archive extensions rather than `karoowa-*`
+          # only for that reason -- merge-multiple does drop the SBOM's core/ and
+          # enterprise/ trees into artifacts/, but those never match `karoowa-*`
+          # at the top level.
+          shopt -s nullglob
+          archives=(karoowa-*.tar.gz karoowa-*.zip)
+          [ ${#archives[@]} -gt 0 ] || { echo "no release archives in artifacts/" >&2; exit 1; }
+          sha256sum "${archives[@]}" > checksums-sha256.txt
           cat checksums-sha256.txt
 
       - name: Install cosign
@@ -183,7 +193,8 @@ jobs:
           COSIGN_YES: "true"
         run: |
           cd artifacts
-          for f in karoowa-* checksums-sha256.txt; do
+          shopt -s nullglob
+          for f in karoowa-*.tar.gz karoowa-*.zip checksums-sha256.txt; do
             cosign sign-blob --yes \
               --output-signature "${f}.sig" \
               --output-certificate "${f}.crt" \
