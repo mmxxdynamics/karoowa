@@ -36,15 +36,20 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # musl targets are deliberately absent. They failed on every tag from
+        # v0.1.0 to v0.5.0 and, because `release` needs this job, took the whole
+        # release with them — which is why this repo has never published an
+        # artifact. `musl-tools` provides musl-gcc but no C++ compiler, and
+        # librocksdb-sys builds RocksDB from C++ source; the aarch64 leg also
+        # used a *glibc* cross-gcc as the linker for a *musl* target. See #41
+        # for the reintroduction plan (non-blocking, static, clearly labelled).
         include:
-          - target: x86_64-unknown-linux-musl
-            os: ubuntu-latest
-            archive: tar.gz
-          - target: aarch64-unknown-linux-musl
-            os: ubuntu-latest
-            archive: tar.gz
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
+            archive: tar.gz
+          # Native arm64 — no cross-compilation. Free for public repos.
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-24.04-arm
             archive: tar.gz
           - target: x86_64-apple-darwin
             os: macos-latest
@@ -67,16 +72,6 @@ jobs:
         with:
           key: release-${{ matrix.target }}
           cache-on-failure: true
-
-      - name: Install musl tools
-        if: contains(matrix.target, 'musl')
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y musl-tools
-          if [[ "${{ matrix.target }}" == "aarch64-unknown-linux-musl" ]]; then
-            sudo apt-get install -y gcc-aarch64-linux-gnu
-            echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
-          fi
 
       - name: Build (maxperf profile)
         run: cargo build --profile maxperf --package karoowa --target ${{ matrix.target }} --locked
@@ -199,6 +194,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Feed the Dockerfile the MSRV from Cargo.toml rather than trusting its
+      # default. The pin had silently fallen to 1.85 against a 1.94 workspace,
+      # which would fail the image build outright.
+      - name: Read workspace MSRV
+        id: msrv
+        run: |
+          v=$(grep -m1 '^rust-version' Cargo.toml | cut -d'"' -f2)
+          echo "Workspace MSRV: $v"
+          test -n "$v" || { echo "could not read rust-version from Cargo.toml"; exit 1; }
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
       - name: Extract image metadata
         id: meta
         uses: docker/metadata-action@v6
@@ -216,6 +222,8 @@ jobs:
           context: .
           file: docker/Dockerfile
           platforms: linux/amd64,linux/arm64
+          build-args: |
+            RUST_VERSION=${{ steps.msrv.outputs.version }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

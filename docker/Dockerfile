@@ -7,7 +7,10 @@
 # Build:
 #   docker build -f docker/Dockerfile -t ghcr.io/mmxxdynamics/karoowa:dev .
 
-ARG RUST_VERSION=1.85
+# Must be >= the workspace `rust-version` in Cargo.toml, or cargo refuses to
+# build. release.yml overrides this with the MSRV read straight from Cargo.toml
+# so the two cannot drift; keep this default in step for local `docker build`.
+ARG RUST_VERSION=1.94
 ARG ALPINE_VERSION=3.20
 ARG DISTROLESS_TAG=nonroot
 

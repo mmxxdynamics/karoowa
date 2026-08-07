@@ -39,16 +39,33 @@
 curl -fsSL https://install.karoowa.io | sh
 
 # Or pin to a specific tag
-VERSION=v0.5.0
-curl -fsSL https://github.com/mmxxdynamics/karoowa/releases/download/${VERSION}/karoowa-${VERSION}-x86_64-unknown-linux-musl.tar.gz \
+VERSION=v0.6.0
+curl -fsSL https://github.com/mmxxdynamics/karoowa/releases/download/${VERSION}/karoowa-${VERSION}-x86_64-unknown-linux-gnu.tar.gz \
   | tar xz -C /usr/local/bin
 karoowa --version
 ```
 
+Published Linux targets are `x86_64-unknown-linux-gnu` and
+`aarch64-unknown-linux-gnu`, plus macOS (both architectures) and Windows.
+
+> **No musl tarball today.** A statically-linked musl binary is not published.
+> Beyond that build never having worked, musl is a poor fit for this workload:
+> its default thread stack is 128 KB (RocksDB creates its compaction threads
+> from C++, so they inherit that rather than Rust's 2 MiB), and its allocator
+> benchmarks 5-10x slower than glibc under the multi-threaded, allocation-heavy
+> access pattern RocksDB generates.
+>
+> Note this applies to the container image too: `docker/Dockerfile` builds on
+> Alpine with `-C target-feature=+crt-static`, so §2.3 ships a musl-linked
+> binary and carries the same characteristics. For a latency-sensitive
+> validator, prefer the `-gnu` tarball on the host. Both the musl tarball and
+> the image's libc choice are tracked in
+> [#41](https://github.com/mmxxdynamics/karoowa/issues/41).
+
 Verify the Sigstore keyless signature before running in production:
 
 ```bash
-gh attestation verify karoowa-${VERSION}-x86_64-unknown-linux-musl.tar.gz \
+gh attestation verify karoowa-${VERSION}-x86_64-unknown-linux-gnu.tar.gz \
     --repo mmxxdynamics/karoowa
 ```
 
