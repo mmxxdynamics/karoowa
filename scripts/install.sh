@@ -4,13 +4,13 @@
 # Usage:
 #   curl -fsSL https://install.karoowa.io | sh
 #   # or:
-#   curl -fsSL https://raw.githubusercontent.com/karoowa/karoowa/main/scripts/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/mmxxdynamics/karoowa/main/scripts/install.sh | sh
 #
 # Installs the latest karoowa binary to ~/.karoowa/bin/karoowa.
 
 set -euo pipefail
 
-REPO="karoowa/karoowa"
+REPO="mmxxdynamics/karoowa"
 INSTALL_DIR="${KAROOWA_HOME:-$HOME/.karoowa}/bin"
 
 # Detect OS and architecture.
@@ -21,7 +21,7 @@ detect_platform() {
     arch="$(uname -m)"
 
     case "$os" in
-        Linux)  os="unknown-linux-musl" ;;
+        Linux)  os="unknown-linux-gnu" ;;
         Darwin) os="apple-darwin" ;;
         MINGW*|MSYS*|CYGWIN*) os="pc-windows-msvc" ;;
         *) echo "Unsupported OS: $os" >&2; exit 1 ;;

@@ -14,22 +14,22 @@ class Karoowa < Formula
 
   on_macos do
     on_arm do
-      url "https://github.com/karoowa/karoowa/releases/download/v#{version}/karoowa-v#{version}-aarch64-apple-darwin.tar.gz"
+      url "https://github.com/mmxxdynamics/karoowa/releases/download/v#{version}/karoowa-v#{version}-aarch64-apple-darwin.tar.gz"
       sha256 "TODO"
     end
     on_intel do
-      url "https://github.com/karoowa/karoowa/releases/download/v#{version}/karoowa-v#{version}-x86_64-apple-darwin.tar.gz"
+      url "https://github.com/mmxxdynamics/karoowa/releases/download/v#{version}/karoowa-v#{version}-x86_64-apple-darwin.tar.gz"
       sha256 "TODO"
     end
   end
 
   on_linux do
     on_arm do
-      url "https://github.com/karoowa/karoowa/releases/download/v#{version}/karoowa-v#{version}-aarch64-unknown-linux-musl.tar.gz"
+      url "https://github.com/mmxxdynamics/karoowa/releases/download/v#{version}/karoowa-v#{version}-aarch64-unknown-linux-gnu.tar.gz"
       sha256 "TODO"
     end
     on_intel do
-      url "https://github.com/karoowa/karoowa/releases/download/v#{version}/karoowa-v#{version}-x86_64-unknown-linux-musl.tar.gz"
+      url "https://github.com/mmxxdynamics/karoowa/releases/download/v#{version}/karoowa-v#{version}-x86_64-unknown-linux-gnu.tar.gz"
       sha256 "TODO"
     end
   end

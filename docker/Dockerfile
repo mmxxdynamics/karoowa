@@ -21,6 +21,15 @@ ARG BUILD_DATE=unknown
 # -- Stage 1: planner ---------------------------------------------------------
 FROM rust:${RUST_VERSION}-alpine${ALPINE_VERSION} AS planner
 
+# A pre-FROM ARG reaches FROM lines but is NOT in scope inside a stage without
+# re-declaring it. RUSTUP_TOOLCHAIN is what actually pins the compiler: the
+# rust:*-alpine images install via rustup, and `COPY . .` brings
+# rust-toolchain.toml (channel = "stable") into the build context, which would
+# otherwise override the base image's toolchain. Same trap as
+# .github/workflows/ci.yml's MSRV job.
+ARG RUST_VERSION
+ENV RUSTUP_TOOLCHAIN=${RUST_VERSION}
+
 RUN apk add --no-cache musl-dev clang llvm lld pkgconfig
 RUN cargo install cargo-chef --locked --version ^0.1
 
@@ -30,6 +39,13 @@ RUN cargo chef prepare --recipe-path recipe.json
 
 # -- Stage 2: builder ---------------------------------------------------------
 FROM rust:${RUST_VERSION}-alpine${ALPINE_VERSION} AS builder
+
+# See the planner stage. Without this, `cargo chef cook` (before COPY . .) runs
+# under the base toolchain while `cargo build` (after) runs under stable —
+# different rustc versions, different fingerprints, so the entire cooked
+# dependency layer is discarded and RocksDB rebuilds from scratch.
+ARG RUST_VERSION
+ENV RUSTUP_TOOLCHAIN=${RUST_VERSION}
 
 RUN apk add --no-cache musl-dev clang llvm lld pkgconfig
 RUN cargo install cargo-chef --locked --version ^0.1

@@ -164,10 +164,11 @@ Available deployment targets are configured by the operator."#,
                     name: "read_release_artifacts".into(),
                     output: format!(
                         "Release {tag} artifacts for {}:\n\
-                         - karoowa-{tag}-x86_64-unknown-linux-musl.tar.gz\n\
-                         - karoowa-{tag}-aarch64-unknown-linux-musl.tar.gz\n\
+                         - karoowa-{tag}-x86_64-unknown-linux-gnu.tar.gz\n\
+                         - karoowa-{tag}-aarch64-unknown-linux-gnu.tar.gz\n\
                          - karoowa-{tag}-x86_64-apple-darwin.tar.gz\n\
                          - karoowa-{tag}-aarch64-apple-darwin.tar.gz\n\
+                         - karoowa-{tag}-x86_64-pc-windows-msvc.zip\n\
                          - checksums-sha256.txt",
                         self.repo
                     ),

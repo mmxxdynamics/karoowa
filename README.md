@@ -62,7 +62,7 @@ signatures, SLSA build-provenance attestations, and a CycloneDX SBOM
 (see [`RELEASE.md`](RELEASE.md) for the full verification commands):
 
 ```sh
-gh attestation verify karoowa-v0.6.0-x86_64-unknown-linux-musl.tar.gz \
+gh attestation verify karoowa-v0.6.0-x86_64-unknown-linux-gnu.tar.gz \
     --repo mmxxdynamics/karoowa
 ```
 

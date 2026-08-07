@@ -33,6 +33,9 @@ jobs:
   build:
     name: Build ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
+    # fat LTO + RocksDB on a 4-vCPU arm runner is the slowest leg; fail loudly
+    # rather than burning the 6h default.
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
@@ -63,6 +66,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          # workflow_dispatch runs against a branch ref by default, which would
+          # build the wrong tree while naming every artifact after the tag.
+          ref: ${{ env.TAG }}
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -103,15 +110,31 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          # workflow_dispatch runs against a branch ref by default, which would
+          # build the wrong tree while naming every artifact after the tag.
+          ref: ${{ env.TAG }}
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
           key: sbom
           cache-on-failure: true
+      # Pinned: this job only runs on a tag, so a breaking CLI change upstream
+      # would not surface until release day — which is exactly how the previous
+      # invocation went unnoticed.
       - name: Install cargo-cyclonedx
-        run: cargo install --locked cargo-cyclonedx
+        run: cargo install --locked cargo-cyclonedx --version 0.5.9
       - name: Generate workspace SBOM
-        run: cargo cyclonedx --format json --output-pattern bom -f -
+        # `--output-pattern` has never existed in cargo-cyclonedx, and `-f` is
+        # the short form of `--format` (json|xml), so `-f -` was invalid too.
+        # This job therefore failed on every tag, and `release` needs it.
+        #
+        # --override-filename sets the extension to "" (generator.rs), giving a
+        # literal `bom.json` per workspace member, which is what the upload glob
+        # below expects.
+        # --all lists the full dependency tree rather than only top-level deps;
+        # a top-level-only SBOM defeats the point of publishing one.
+        run: cargo cyclonedx --format json --all --override-filename bom
       - name: Upload SBOM
         uses: actions/upload-artifact@v7
         with:
@@ -126,6 +149,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          # workflow_dispatch runs against a branch ref by default, which would
+          # build the wrong tree while naming every artifact after the tag.
+          ref: ${{ env.TAG }}
 
       - name: Download all artifacts
         uses: actions/download-artifact@v8
@@ -159,7 +186,8 @@ jobs:
         uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
-            artifacts/karoowa-*
+            artifacts/karoowa-*.tar.gz
+            artifacts/karoowa-*.zip
 
       - name: Create or update GitHub Release (draft)
         uses: softprops/action-gh-release@v3
@@ -183,6 +211,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          # workflow_dispatch runs against a branch ref by default, which would
+          # build the wrong tree while naming every artifact after the tag.
+          ref: ${{ env.TAG }}
 
       - uses: docker/setup-qemu-action@v4
       - uses: docker/setup-buildx-action@v4
@@ -195,8 +227,10 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # Feed the Dockerfile the MSRV from Cargo.toml rather than trusting its
-      # default. The pin had silently fallen to 1.85 against a 1.94 workspace,
-      # which would fail the image build outright.
+      # default, which had drifted to 1.85 against a 1.94 workspace. Note this
+      # only bites in combination with RUSTUP_TOOLCHAIN in the Dockerfile —
+      # without that, rust-toolchain.toml silently pulls in latest stable and
+      # the pin is decorative (and busts the cargo-chef cache).
       - name: Read workspace MSRV
         id: msrv
         run: |

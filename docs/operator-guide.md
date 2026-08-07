@@ -2,7 +2,7 @@
 
 **Audience:** ops engineers running a Karoowa node in production (validator, full node, or enterprise deployment).
 **Target version:** v1.0 (in progress; current pre-release tag is `v0.5.0`).
-**Last updated:** 2026-05-05.
+**Last updated:** 2026-08-07.
 
 > **Status note.** Capabilities marked _v1.0_ (HSM, HA lease backends,
 > hard-upgrade migration framework, k8s reference manifests) describe the
@@ -88,7 +88,7 @@ docker run --rm -it \
   -v /var/lib/karoowa:/data \
   -p 8545:8545 \
   -p 30303:30303 \
-  ghcr.io/mmxxdynamics/karoowa:v0.5.0 \
+  ghcr.io/mmxxdynamics/karoowa:0.6.0 \
   node \
       --validator-key /data/validator.key \
       --consensus poa \
@@ -206,7 +206,7 @@ spec:
       terminationGracePeriodSeconds: 90
       containers:
         - name: karoowa
-          image: ghcr.io/mmxxdynamics/karoowa:v0.5.0
+          image: ghcr.io/mmxxdynamics/karoowa:0.6.0
           args:
             - node
             - --validator-key

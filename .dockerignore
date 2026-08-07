@@ -1,0 +1,21 @@
+# Keep the build context small. `docker/Dockerfile` does `COPY . .` twice
+# (planner + builder) and the release job builds for two platforms, so anything
+# left here is transferred four times.
+target/
+target-linux/
+
+.git/
+.github/
+
+# Never bake keys or local chain state into an image layer.
+*.key
+data/
+devnet-data/
+
+docs/
+specs/
+*.md
+!README.md
+
+.DS_Store
+lcov.info
