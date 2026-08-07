@@ -64,11 +64,17 @@ jobs:
       - run: cargo test --workspace --no-fail-fast
 
   msrv:
-    name: MSRV (1.92)
+    name: MSRV (1.94)
     runs-on: ubuntu-latest
+    # RUSTUP_TOOLCHAIN is required for this job to test anything. The action
+    # only runs `rustup default`, which rust-toolchain.toml (channel = "stable")
+    # overrides — so before this was added the job compiled under stable and
+    # never actually enforced the MSRV declared in Cargo.toml.
+    env:
+      RUSTUP_TOOLCHAIN: "1.94"
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.92
+      - uses: dtolnay/rust-toolchain@1.94
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true

@@ -13,11 +13,10 @@ all-features = true
 yanked = "deny"
 #
 # IMPORTANT: every entry in `ignore` below is tracked debt that MUST be
-# resolved before the v1.0 mainnet cut. Two of them trace back to dep
-# upgrades still pending; one cannot be cleared by any upgrade:
+# resolved before the v1.0 mainnet cut. One traces back to a dep upgrade
+# still pending; the other cannot be cleared by any upgrade:
 #
 #   libp2p 0.56 → newer    (no PR yet; needs ecosystem catch-up)
-#   wasmtime 44 → 47       (no PR yet; consensus-critical, needs its own review)
 #   bincode                (NOT an upgrade — the advisory has `patched = []`
 #                           and covers every version; only migrating off
 #                           bincode entirely can clear it)
@@ -39,13 +38,6 @@ ignore = [
     # v1-series issue and is not blocked on any Dependabot PR — only migrating
     # off bincode (wincode / postcard / bitcode / rkyv) can remove this ignore.
     "RUSTSEC-2025-0141",  # bincode: unmaintained (all versions; patched = [])
-
-    # --- wasmtime 44 → 47 bump (not yet raised) ---
-    # Patched only in >=46.0.2 or >=47.0.3 — no in-place fix for the 44
-    # series. Low severity (3.8), needs two Engines in one process, and the
-    # node builds a single Engine. Deferred to its own reviewed PR because
-    # bumping the VM three majors is consensus-critical.
-    "RUSTSEC-2026-0222",  # wasmtime: stores can mix up type indices between engines
 ]
 
 [licenses]
