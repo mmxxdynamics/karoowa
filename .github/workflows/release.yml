@@ -169,15 +169,32 @@ jobs:
           merge-multiple: true
           path: artifacts
 
+      # The sbom job gates this one via `needs`, so if the SBOM is not actually
+      # published the gate is pure cost — a failure there blocks a release for an
+      # artifact nobody receives. That is the same shape as the musl legs this
+      # branch removed. Packaging it as karoowa-<tag>-sboms-cyclonedx.tar.gz also
+      # means it flows through the checksum, cosign, attestation and files globs
+      # below with no further wiring.
+      - name: Package the CycloneDX SBOMs
+        run: |
+          cd artifacts
+          shopt -s nullglob
+          boms=(*/*/bom.json)
+          if [ ${#boms[@]} -eq 0 ]; then
+            echo "no bom.json files found in the sbom artifact" >&2
+            exit 1
+          fi
+          tar czf "karoowa-${TAG}-sboms-cyclonedx.tar.gz" "${boms[@]}"
+          rm -rf core enterprise
+          echo "packaged ${#boms[@]} SBOMs"
+
       - name: Generate SHA-256 checksums
         run: |
           cd artifacts
           # nullglob so that a matrix without a Windows (or Unix) leg cannot hand
           # sha256sum an unexpanded literal, which would fail the release at the
-          # last hop. Scoped to the archive extensions rather than `karoowa-*`
-          # only for that reason -- merge-multiple does drop the SBOM's core/ and
-          # enterprise/ trees into artifacts/, but those never match `karoowa-*`
-          # at the top level.
+          # last hop. By this point the SBOM has been packaged into a
+          # karoowa-*.tar.gz too, so it is checksummed and signed with the rest.
           shopt -s nullglob
           archives=(karoowa-*.tar.gz karoowa-*.zip)
           [ ${#archives[@]} -gt 0 ] || { echo "no release archives in artifacts/" >&2; exit 1; }
