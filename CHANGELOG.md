@@ -10,6 +10,12 @@ v1.0 ships. Pre-1.0 releases may make breaking changes between minor versions.
 
 ### Added
 
+- **`karoowa node --rpc-bind <ADDR>`** to choose the RPC listen address.
+  Defaults to `0.0.0.0`, which is the existing behaviour, so nothing changes
+  unless you pass it. The RPC is unauthenticated, so the node now logs a
+  warning at startup whenever it is bound to a non-loopback address. Pass
+  `--rpc-bind 127.0.0.1` on hosts that do not need remote RPC — but not inside
+  a container, where a loopback bind is unreachable through a published port.
 - **`aarch64-unknown-linux-gnu` release target**, built natively on
   `ubuntu-24.04-arm`. arm64 Linux operators were previously offered only the
   musl build, which never worked.
@@ -46,9 +52,10 @@ v1.0 ships. Pre-1.0 releases may make breaking changes between minor versions.
   - **systemd** — if you generate as `root` but run as `User=karoowa`,
     `chown karoowa:karoowa` the key file.
   - **Containers** — the image runs as `nonroot` (uid 65532); a bind-mounted
-    key generated on the host is not readable by it. For the throwaway devnet
-    keys, `chmod 0644 docker/genesis.validator*.key` (this is what
-    `docker/test-devnet.sh` now does).
+    key generated on the host is not readable by it. For the throwaway local
+    keys, `chmod 0644 docker/genesis.validator*.key` (4-validator devnet, which
+    `docker/test-devnet.sh` now does for you) or `chmod 0644
+    docker/validator.key` (single-node `docker-compose.yml`).
 
   Existing files are also tightened when rewritten.
 

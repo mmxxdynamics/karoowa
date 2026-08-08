@@ -12,9 +12,9 @@
 #                        `nonroot`/65532 and cannot read an owner-only file
 #                        bind-mounted from the host. Throwaway devnet keys only.)
 #   3. Copy key files:   (genesis command creates docker/genesis.validator{0..3}.key)
-#   3. Start:            docker compose -f docker/devnet.yml up -d
-#   4. Grafana:          http://localhost:3000 (admin/admin) — DEV ONLY
-#   5. Check:            curl http://localhost:8545/health
+#   4. Start:            docker compose -f docker/devnet.yml up -d
+#   5. Grafana:          http://localhost:3000 (admin/admin) — DEV ONLY
+#   6. Check:            curl http://localhost:8545/health
 
 services:
   validator-0:
