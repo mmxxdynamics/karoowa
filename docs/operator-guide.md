@@ -101,8 +101,15 @@ docker run --rm -it \
 ```
 
 > **The RPC is unauthenticated and binds `0.0.0.0` by default.** Only publish
-> `8545` on a trusted network. On a host where you do not need remote RPC, pass
-> `--rpc-bind 127.0.0.1`.
+> `8545` on a trusted network.
+>
+> On a bare-metal or systemd host that does not need remote RPC, pass
+> `--rpc-bind 127.0.0.1`. **Do not do this inside a container** — a loopback
+> bind is unreachable through a published port, so `-p 8545:8545` would refuse
+> connections. Restrict container RPC at the network layer instead.
+>
+> Key files are `0600` and owned by the generating user; the image runs as
+> `nonroot` (uid 65532), so a bind-mounted key must be readable by that uid.
 
 ---
 
@@ -115,6 +122,16 @@ karoowa wallet new --output /var/lib/karoowa/keys/validator.key
 ```
 
 Back up the output file **immediately** and store a copy in cold storage. Losing this key means losing your validator slot. For mainnet, generate keys inside an HSM (see §7).
+
+> **The key file is written `0600`, owned by whoever ran the command.** If you
+> generate it as `root` but run the service as `User=karoowa` (§4.1), the node
+> cannot read it. Either generate it as the service user, or hand it over:
+>
+> ```bash
+> chown karoowa:karoowa /var/lib/karoowa/keys/validator.key
+> ```
+>
+> The same applies to containers — see §2.3.
 
 ### 3.2 Join a network
 

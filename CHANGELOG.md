@@ -36,6 +36,22 @@ v1.0 ships. Pre-1.0 releases may make breaking changes between minor versions.
 
 ### Changed
 
+- **Private key files are now written `0600`** by `karoowa wallet new`,
+  `karoowa genesis generate`, and the onboarding agent's `generate_wallet`
+  tool. They previously used the process umask, commonly `0644` — any local
+  user or any process sharing the container could read a validator key.
+
+  **Migration.** The key must be readable by whoever runs the node:
+
+  - **systemd** — if you generate as `root` but run as `User=karoowa`,
+    `chown karoowa:karoowa` the key file.
+  - **Containers** — the image runs as `nonroot` (uid 65532); a bind-mounted
+    key generated on the host is not readable by it. For the throwaway devnet
+    keys, `chmod 0644 docker/genesis.validator*.key` (this is what
+    `docker/test-devnet.sh` now does).
+
+  Existing files are also tightened when rewritten.
+
 - **BREAKING (artifacts): the musl release targets are no longer published.**
   `x86_64-unknown-linux-musl` and `aarch64-unknown-linux-musl` are removed from
   the release matrix. Both had failed on every tag from v0.1.0 to v0.5.0, and

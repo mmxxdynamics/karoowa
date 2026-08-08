@@ -140,7 +140,8 @@ Keep responses concise. Use the tools proactively — don't just describe what t
                     .as_str()
                     .unwrap_or("validator.key");
                 let kp = karoowa_crypto::Keypair::generate();
-                match std::fs::write(output_path, kp.private_key_hex()) {
+                // Owner-only: this writes a validator private key.
+                match karoowa_crypto::write_secret_file(output_path, kp.private_key_hex()) {
                     Ok(()) => Ok(ToolResult {
                         name: "generate_wallet".into(),
                         output: format!(
