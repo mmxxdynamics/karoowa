@@ -296,8 +296,19 @@ as uid 65532, so how the key arrives matters.
 pod crash-loops on EACCES.
 
 A `Secret` is the cleaner option, since it keeps the key off the data volume.
-Mount it read-only and point `--validator-key` at it — this splices into the
-StatefulSet above, at the container and pod levels respectively:
+Create it with a data key named `validator.key` — that name becomes the filename
+under the mount point:
+
+```bash
+kubectl create secret generic karoowa-validator-key \
+  --from-file=validator.key=/path/to/validator.key
+```
+
+Then change the container's `--validator-key` argument from
+`/data/validator.key` to **`/keys/validator.key`**, and splice the two blocks
+below into the StatefulSet at the container and pod levels respectively —
+merging the `volumeMounts` entry into the existing one rather than adding a
+second `volumeMounts:` key:
 
 ```yaml
           volumeMounts:
