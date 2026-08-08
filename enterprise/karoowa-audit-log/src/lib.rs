@@ -257,11 +257,17 @@ impl FileSink {
     /// Open (or create) the given path for append-only writes.
     pub fn open(path: impl AsRef<Path>) -> Result<Self, AuditError> {
         let path = path.as_ref().to_path_buf();
-        let file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&path)
-            .map_err(AuditError::Io)?;
+        // 0600: audit records carry HSM key ids, backends and signing reasons.
+        // Set at creation rather than via write_secret_file — this sink keeps a
+        // live append-only fd and must not be replaced by a rename.
+        let mut opts = OpenOptions::new();
+        opts.create(true).append(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            opts.mode(0o600);
+        }
+        let file = opts.open(&path).map_err(AuditError::Io)?;
         Ok(FileSink {
             path,
             file: Mutex::new(file),

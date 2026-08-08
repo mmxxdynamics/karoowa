@@ -26,6 +26,14 @@ static TEMP_SEQ: AtomicU32 = AtomicU32::new(0);
 ///   a `chmod` on the destination — so this also works when the caller can
 ///   write the directory but does not own the existing file.
 ///
+/// Two consequences of the rename worth knowing:
+///
+/// - The **parent directory must be writable**, which a plain truncating write
+///   did not require. Writing into a read-only directory now fails.
+/// - A symlink at `path` is **replaced**, not written through. That defeats
+///   symlink redirection, but it also means "symlink the key into place" stops
+///   working the way it used to.
+///
 /// On non-Unix targets there is no mode to set, so the file inherits default
 /// ACLs and the caller is responsible for restricting it.
 pub fn write_secret_file(path: impl AsRef<Path>, contents: impl AsRef<[u8]>) -> io::Result<()> {
@@ -51,7 +59,20 @@ pub fn write_secret_file(path: impl AsRef<Path>, contents: impl AsRef<[u8]>) -> 
     ));
     let temp_path = dir.join(temp_name);
 
-    let result = write_then_rename(&temp_path, path, contents.as_ref());
+    let mut result = write_then_rename(&temp_path, path, contents.as_ref());
+
+    // A temp file left behind by a killed process collides on pid+seq reuse —
+    // realistic in a container, where PIDs restart at 1 and TEMP_SEQ at 0. The
+    // stale file is ours by construction, so clear it and retry once rather
+    // than failing with a confusing AlreadyExists.
+    if result
+        .as_ref()
+        .is_err_and(|e| e.kind() == io::ErrorKind::AlreadyExists)
+    {
+        let _ = std::fs::remove_file(&temp_path);
+        result = write_then_rename(&temp_path, path, contents.as_ref());
+    }
+
     if result.is_err() {
         // Never leave a partial secret lying around.
         let _ = std::fs::remove_file(&temp_path);
@@ -175,6 +196,12 @@ mod tests {
         std::fs::write(&path, b"PRECIOUS").unwrap();
 
         std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o500)).unwrap();
+        // root ignores the directory mode, so there is nothing to assert.
+        if std::fs::File::create(dir.join(".probe")).is_ok() {
+            std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700)).unwrap();
+            std::fs::remove_dir_all(&dir).ok();
+            return;
+        }
         let result = write_secret_file(&path, b"new");
         std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700)).unwrap();
 

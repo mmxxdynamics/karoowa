@@ -74,8 +74,24 @@ pub struct NodeArgs {
 }
 
 pub async fn run(args: NodeArgs) -> Result<(), Box<dyn std::error::Error>> {
-    // Load validator key.
-    let key_hex = std::fs::read_to_string(&args.validator_key)?
+    // Load validator key. Name the path and, on a permission error, say what to
+    // do about it — key files are 0600, so "wrong user" is the likeliest cause
+    // and a bare `Permission denied (os error 13)` gives the operator nothing.
+    let key_hex = std::fs::read_to_string(&args.validator_key)
+        .map_err(|e| {
+            let path = args.validator_key.display();
+            if e.kind() == std::io::ErrorKind::PermissionDenied {
+                format!(
+                    "cannot read validator key {path}: {e}\n\
+                     Key files are written 0600, readable only by their owner. \
+                     Check that this process runs as the user that owns the key \
+                     (`ls -l {path}`), or hand it over with `chown`. In a \
+                     container the key must be readable by uid 65532."
+                )
+            } else {
+                format!("cannot read validator key {path}: {e}")
+            }
+        })?
         .trim()
         .to_string();
     let key_bytes = hex::decode(key_hex.strip_prefix("0x").unwrap_or(&key_hex))?;

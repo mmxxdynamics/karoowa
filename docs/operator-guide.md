@@ -233,6 +233,13 @@ spec:
   replicas: 1
   template:
     spec:
+      # The image runs as uid 65532 and the validator key is 0600. Without
+      # this, a key placed on the PVC by a root initContainer or `kubectl cp`
+      # is unreadable and the pod crash-loops.
+      securityContext:
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
       terminationGracePeriodSeconds: 90
       containers:
         - name: karoowa
@@ -276,6 +283,12 @@ spec:
         storageClassName: fast-nvme
         resources: { requests: { storage: 1Ti } }
 ```
+
+> **Getting the key onto the pod.** The validator key is `0600` and the image
+> runs as uid 65532. Prefer a `Secret` mounted read-only with
+> `defaultMode: 0400`; if you place the key on the PVC instead, the `fsGroup`
+> above is what makes it readable. A key written by a root initContainer
+> without either is unreadable and the pod will crash-loop. See §3.1.
 
 ---
 
@@ -375,6 +388,12 @@ in `enterprise/karoowa-hsm/src/provider.rs` is stable today: integrations
 implement the same trait that SoftHsm does.
 
 ### 7.3 Key rotation
+
+> **Rotating in place changes the key file's owner.** The key is written by
+> creating a new file and renaming it over the old one, so it ends up owned by
+> whoever ran the command — not by the previous owner. If you rotate as `root`
+> a key that `User=karoowa` reads, `chown karoowa:karoowa` it again afterwards
+> or the node will not restart.
 
 1. Generate the new key in the HSM: `karoowa wallet hsm-generate --key-id validator-2`.
 2. Submit a validator-set change on-chain via governance.

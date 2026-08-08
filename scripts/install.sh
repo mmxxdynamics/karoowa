@@ -154,8 +154,11 @@ main() {
 
     echo ""
     echo "Get started:"
-    echo "  karoowa wallet new"
+    echo "  karoowa wallet new --output validator.key"
     echo "  karoowa node --validator-key validator.key --consensus poa"
+    echo ""
+    echo "The key is written 0600, readable only by the user that created it."
+    echo "If you ran this with sudo, chown it to the account that runs the node."
     echo ""
 }
 

@@ -21,7 +21,7 @@ pub fn run(args: DevnetArgs) -> Result<(), Box<dyn std::error::Error>> {
             println!("====================");
             println!();
             println!("Quick start:");
-            println!("  1. Generate genesis:  karoowa genesis generate --validators 4");
+            println!("  1. Generate genesis:  karoowa genesis generate --validators 4 --output docker/genesis.toml");
             println!(
                 "  2. Start single node: karoowa node --validator-key genesis.validator0.key --consensus poa"
             );
