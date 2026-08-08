@@ -43,14 +43,18 @@ v1.0 ships. Pre-1.0 releases may make breaking changes between minor versions.
 ### Changed
 
 - **Private key files are now written `0600`** by `karoowa wallet new`,
-  `karoowa genesis generate`, and the onboarding agent's `generate_wallet`
-  tool. They previously used the process umask, commonly `0644` — any local
+  `karoowa genesis generate`, the onboarding agent's `generate_wallet` tool,
+  and the SoftHSM key store (`enterprise/karoowa-hsm`, which holds secret keys
+  for every key in the store). They previously used the process umask, commonly `0644` — any local
   user or any process sharing the container could read a validator key.
 
   **Migration.** The key must be readable by whoever runs the node:
 
   - **systemd** — if you generate as `root` but run as `User=karoowa`,
-    `chown karoowa:karoowa` the key file.
+    `chown karoowa:karoowa` the key file. `scripts/server/harden.sh` now prints
+    this step.
+  - **Backups** — archive with mode-preserving flags (`tar -p`, `rsync -a`),
+    and `chown` after restoring as root.
   - **Containers** — the image runs as `nonroot` (uid 65532); a bind-mounted
     key generated on the host is not readable by it. For the throwaway local
     keys, `chmod 0644 docker/genesis.validator*.key` (4-validator devnet, which

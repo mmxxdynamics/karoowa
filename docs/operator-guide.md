@@ -388,6 +388,11 @@ A key rotation emits an `AuditAction::KeyRotation` event to the SOC 2 audit log.
 
 ## 8. Backup & Restore
 
+> **Key files are `0600` and owned by the user that created them.** Use an
+> archiver that preserves modes (`tar -p`, `rsync -a`) so a restored key is not
+> silently widened — and after restoring as `root`, `chown` it back to the
+> service user or the node will not be able to read it.
+
 ### 8.1 What to back up
 
 - `$HOME/keys/validator.json` (or HSM key slot metadata)

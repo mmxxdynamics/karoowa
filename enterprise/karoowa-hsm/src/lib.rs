@@ -270,7 +270,9 @@ impl SoftHsm {
         };
         let bytes =
             serde_json::to_vec_pretty(&file).map_err(|e| HsmError::Malformed(e.to_string()))?;
-        fs::write(path, bytes).map_err(HsmError::Io)?;
+        // This file holds hex-encoded ed25519 secret keys for every key in the
+        // store, so it must not be written at the process umask.
+        karoowa_crypto::write_secret_file(path, bytes).map_err(HsmError::Io)?;
         Ok(())
     }
 }

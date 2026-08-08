@@ -39,7 +39,11 @@ fi
 # case the guard is false and the chmod would never run.
 #
 # Do NOT copy this for a real validator key — see docs/operator-guide.md 3.1.
-chmod 0644 genesis.validator*.key
+if ! chmod 0644 genesis.validator*.key 2>/dev/null; then
+    echo "WARNING: could not chmod the devnet keys (owned by another user?)." >&2
+    echo "         The containers run as uid 65532 and need them readable:" >&2
+    echo "           sudo chmod 0644 docker/genesis.validator*.key" >&2
+fi
 
 # 2. Build and start the devnet.
 echo "Starting 4-validator devnet..."
