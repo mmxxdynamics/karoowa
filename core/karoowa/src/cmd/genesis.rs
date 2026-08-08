@@ -38,7 +38,7 @@ pub fn run(args: GenesisArgs) -> Result<(), Box<dyn std::error::Error>> {
                 let kp = Keypair::generate();
                 println!("Validator {i}: {}", kp.address());
                 let key_path = output.with_extension(format!("validator{i}.key"));
-                std::fs::write(&key_path, kp.private_key_hex())?;
+                crate::cmd::write_secret_file(&key_path, kp.private_key_hex())?;
                 println!("  Key file: {}", key_path.display());
                 validator_keys.push(kp);
             }

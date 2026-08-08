@@ -19,6 +19,12 @@ use crate::{health, rest, rpc, ws};
 #[derive(Debug, Clone)]
 pub struct ServerConfig {
     /// Address to bind to (e.g. `0.0.0.0:8545`).
+    ///
+    /// NOTE: the RPC is unauthenticated. Binding a non-loopback address exposes
+    /// node control and mempool submission to anyone who can reach the host.
+    /// `karoowa node --rpc-bind` defaults to `0.0.0.0` for backwards
+    /// compatibility and warns; prefer `127.0.0.1` unless it is firewalled or
+    /// behind an authenticating proxy.
     pub bind_addr: SocketAddr,
     /// Chain ID for JSON-RPC responses.
     pub chain_id: u64,

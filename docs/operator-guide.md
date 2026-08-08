@@ -100,6 +100,10 @@ docker run --rm -it \
       --p2p-port 30303
 ```
 
+> **The RPC is unauthenticated and binds `0.0.0.0` by default.** Only publish
+> `8545` on a trusted network. On a host where you do not need remote RPC, pass
+> `--rpc-bind 127.0.0.1`.
+
 ---
 
 ## 3. First-time Setup
@@ -191,6 +195,12 @@ WantedBy=multi-user.target
 ```
 
 `SIGINT` gives the node time to flush RocksDB and release the HA lease cleanly. A 60-second stop timeout covers the normal shutdown path.
+
+**Harden the RPC on a validator.** The RPC binds `0.0.0.0` by default and has no
+authentication of its own, so it exposes node control and mempool submission to
+anything that can reach the host. Unless you deliberately serve remote clients,
+add `--rpc-bind 127.0.0.1` to `ExecStart`, or firewall port 8545. The node logs
+a warning at startup whenever it is bound to a non-loopback address.
 
 ### 4.2 Kubernetes
 
