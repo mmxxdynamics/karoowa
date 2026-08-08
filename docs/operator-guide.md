@@ -235,8 +235,9 @@ spec:
     spec:
       securityContext:
         # The image already runs as 65532; stated here so the manifest does not
-        # depend on that. fsGroup makes volume contents group-readable by 65532
-        # — needed only if the key lives on the PVC (see the note below).
+        # depend on that. fsGroup is what makes mounted volume contents readable
+        # by 65532, and it is required for BOTH the Secret and the PVC paths
+        # below — the kubelet applies volume ownership only when fsGroup is set.
         # OnRootMismatch avoids a recursive chown of the whole 1Ti volume on
         # every pod start.
         runAsUser: 65532
@@ -287,18 +288,35 @@ spec:
         resources: { requests: { storage: 1Ti } }
 ```
 
-> **Getting the key onto the pod.** The validator key is `0600` and the image
-> runs as uid 65532, so how the key arrives matters.
->
-> **Use a `Secret`** mounted read-only with `defaultMode: 0400`. The kubelet
-> applies ownership when it sets the volume up, so this works without relying
-> on `fsGroup` and without touching the data volume.
->
-> If you instead place the key on the PVC, note that `fsGroup` is applied at
-> **volume setup time**, before any container runs — it does not fix a key
-> written afterwards by a root `initContainer`, which stays `root:root` and is
-> unreadable at `0600`. In that case have the initContainer `chown 65532:65532`
-> the key itself. See §3.1.
+**Getting the key onto the pod.** The validator key is `0600` and the image runs
+as uid 65532, so how the key arrives matters.
+
+**Keep `fsGroup: 65532` either way.** The kubelet chowns mounted volume contents
+*only* when `fsGroup` is set — without it, secret files stay `root:root` and the
+pod crash-loops on EACCES.
+
+A `Secret` is the cleaner option, since it keeps the key off the data volume.
+Mount it read-only and point `--validator-key` at it — this splices into the
+StatefulSet above, at the container and pod levels respectively:
+
+```yaml
+          volumeMounts:
+            - { name: key, mountPath: /keys, readOnly: true }
+      volumes:
+        - name: key
+          secret:
+            secretName: karoowa-validator-key
+            defaultMode: 0400
+```
+
+With `fsGroup` set that lands as `root:65532` mode `0440` — the kubelet ORs a
+read-only mask in, so `0400` is not literally what appears on disk — and uid
+65532 can read it.
+
+If you put the key on the **PVC** instead, note that `fsGroup` is applied at
+volume setup, before any container runs. It does not fix a key written
+afterwards by a root `initContainer`, which stays `root:root` and is unreadable
+at `0600`; have that initContainer `chown 65532:65532` the key itself. See §3.1.
 
 ---
 
@@ -419,7 +437,8 @@ A key rotation emits an `AuditAction::KeyRotation` event to the SOC 2 audit log.
 ## 8. Backup & Restore
 
 > **Key files are `0600` and owned by the user that created them.** Use an
-> archiver that preserves modes (`tar -p`, `rsync -a`) so a restored key is not
+> archiver that preserves modes on *extract* (`tar xzpf`, `rsync -a`) — GNU tar
+> always records modes when creating — so a restored key is not
 > silently widened — and after restoring as `root`, `chown` it back to the
 > service user or the node will not be able to read it.
 

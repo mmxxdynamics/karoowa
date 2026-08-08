@@ -55,15 +55,18 @@ v1.0 ships. Pre-1.0 releases may make breaking changes between minor versions.
   - **systemd** — if you generate as `root` but run as `User=karoowa`,
     `chown karoowa:karoowa` the key file. `scripts/server/harden.sh` now prints
     this step.
-  - **Backups** — archive with mode-preserving flags (`tar -p`, `rsync -a`),
-    and `chown` after restoring as root.
+  - **Backups** — extract with mode-preserving flags (`tar xzpf`, `rsync -a`);
+    GNU tar always records modes on create. `chown` after restoring as root.
   - **Containers** — the image runs as `nonroot` (uid 65532); a bind-mounted
     key generated on the host is not readable by it. For the throwaway local
     keys, `chmod 0644 docker/genesis.validator*.key` (4-validator devnet, which
     `docker/test-devnet.sh` now does for you) or `chmod 0644
     docker/validator.key` (single-node `docker-compose.yml`).
 
-  Existing files are also tightened when rewritten.
+  Existing files are also tightened when rewritten. Two consequences of the
+  write being a rename rather than a truncate: the **parent directory must be
+  writable**, and the rewritten file is owned by whoever ran the command — so
+  rotating a key in place as `root` needs a `chown` afterwards.
 
 - **BREAKING (artifacts): the musl release targets are no longer published.**
   `x86_64-unknown-linux-musl` and `aarch64-unknown-linux-musl` are removed from
