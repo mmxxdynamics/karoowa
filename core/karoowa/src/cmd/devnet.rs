@@ -23,7 +23,7 @@ pub fn run(args: DevnetArgs) -> Result<(), Box<dyn std::error::Error>> {
             println!("Quick start:");
             println!("  1. Generate genesis:  karoowa genesis generate --validators 4 --output docker/genesis.toml");
             println!(
-                "  2. Start single node: karoowa node --validator-key genesis.validator0.key --consensus poa"
+                "  2. Start single node: karoowa node --validator-key docker/genesis.validator0.key --consensus poa"
             );
             println!("  3. Docker devnet:     chmod 0644 docker/genesis.validator*.key");
             println!("                        (keys are 0600; containers run as uid 65532)");

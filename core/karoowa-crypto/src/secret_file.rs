@@ -32,7 +32,10 @@ static TEMP_SEQ: AtomicU32 = AtomicU32::new(0);
 ///   did not require. Writing into a read-only directory now fails.
 /// - A symlink at `path` is **replaced**, not written through. That defeats
 ///   symlink redirection, but it also means "symlink the key into place" stops
-///   working the way it used to.
+///   working the way it used to. Hard links are broken for the same reason:
+///   other links keep the old content.
+/// - The new file is owned by the *writing* user, so rewriting someone else's
+///   key changes its owner.
 ///
 /// On non-Unix targets there is no mode to set, so the file inherits default
 /// ACLs and the caller is responsible for restricting it.

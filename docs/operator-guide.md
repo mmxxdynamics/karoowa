@@ -233,13 +233,16 @@ spec:
   replicas: 1
   template:
     spec:
-      # The image runs as uid 65532 and the validator key is 0600. Without
-      # this, a key placed on the PVC by a root initContainer or `kubectl cp`
-      # is unreadable and the pod crash-loops.
       securityContext:
+        # The image already runs as 65532; stated here so the manifest does not
+        # depend on that. fsGroup makes volume contents group-readable by 65532
+        # — needed only if the key lives on the PVC (see the note below).
+        # OnRootMismatch avoids a recursive chown of the whole 1Ti volume on
+        # every pod start.
         runAsUser: 65532
         runAsGroup: 65532
         fsGroup: 65532
+        fsGroupChangePolicy: OnRootMismatch
       terminationGracePeriodSeconds: 90
       containers:
         - name: karoowa
@@ -285,10 +288,17 @@ spec:
 ```
 
 > **Getting the key onto the pod.** The validator key is `0600` and the image
-> runs as uid 65532. Prefer a `Secret` mounted read-only with
-> `defaultMode: 0400`; if you place the key on the PVC instead, the `fsGroup`
-> above is what makes it readable. A key written by a root initContainer
-> without either is unreadable and the pod will crash-loop. See §3.1.
+> runs as uid 65532, so how the key arrives matters.
+>
+> **Use a `Secret`** mounted read-only with `defaultMode: 0400`. The kubelet
+> applies ownership when it sets the volume up, so this works without relying
+> on `fsGroup` and without touching the data volume.
+>
+> If you instead place the key on the PVC, note that `fsGroup` is applied at
+> **volume setup time**, before any container runs — it does not fix a key
+> written afterwards by a root `initContainer`, which stays `root:root` and is
+> unreadable at `0600`. In that case have the initContainer `chown 65532:65532`
+> the key itself. See §3.1.
 
 ---
 
@@ -389,11 +399,12 @@ implement the same trait that SoftHsm does.
 
 ### 7.3 Key rotation
 
-> **Rotating in place changes the key file's owner.** The key is written by
-> creating a new file and renaming it over the old one, so it ends up owned by
-> whoever ran the command — not by the previous owner. If you rotate as `root`
-> a key that `User=karoowa` reads, `chown karoowa:karoowa` it again afterwards
-> or the node will not restart.
+> **Rotating a *file-based* key changes its owner.** This applies to
+> `validator.key` (§3.1) and to `softhsm.json`, not to the HSM key ids below.
+> Secret files are written by creating a new file and renaming it over the old
+> one, so the result is owned by whoever ran the command — not by the previous
+> owner. If you rotate as `root` a file that `User=karoowa` reads,
+> `chown karoowa:karoowa` it again afterwards or the node will not restart.
 
 1. Generate the new key in the HSM: `karoowa wallet hsm-generate --key-id validator-2`.
 2. Submit a validator-set change on-chain via governance.
@@ -424,7 +435,7 @@ A key rotation emits an `AuditAction::KeyRotation` event to the SOC 2 audit log.
 ```bash
 systemctl stop karoowa
 rm -rf /var/lib/karoowa/chain
-tar xzf backup.tar.gz -C /var/lib/karoowa/
+tar xzpf backup.tar.gz -C /var/lib/karoowa/
 systemctl start karoowa
 ```
 

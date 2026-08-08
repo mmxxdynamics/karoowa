@@ -45,7 +45,9 @@ v1.0 ships. Pre-1.0 releases may make breaking changes between minor versions.
 - **Private key files are now written `0600`** by `karoowa wallet new`,
   `karoowa genesis generate`, the onboarding agent's `generate_wallet` tool,
   and the SoftHSM key store (`enterprise/karoowa-hsm`, which holds secret keys
-  for every key in the store). They previously used the process umask, commonly `0644` — any local
+  for every key in the store). The SOC 2 audit log
+  (`enterprise/karoowa-audit-log`) is likewise created `0600`, since its records
+  carry HSM key ids, backends and signing reasons. They previously used the process umask, commonly `0644` — any local
   user or any process sharing the container could read a validator key.
 
   **Migration.** The key must be readable by whoever runs the node:

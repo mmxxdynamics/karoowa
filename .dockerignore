@@ -22,6 +22,9 @@ rust-toolchain.toml
 
 # Never bake keys or local chain state into an image layer.
 **/*.key
+# Crash leftovers from write_secret_file: `COPY . .` runs twice, so one of
+# these would be baked into an image layer.
+**/.*.tmp[0-9]*.[0-9]*
 data/
 devnet-data/
 .karoowa/
