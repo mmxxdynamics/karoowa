@@ -191,6 +191,7 @@ jobs:
             -p karoowa-consensus \
             -p karoowa-bridge \
             -p karoowa-vm \
+            -p karoowa-crypto \
             --summary-only
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v7

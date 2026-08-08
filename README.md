@@ -88,6 +88,9 @@ Multi-validator devnet via Docker:
 
 ```sh
 karoowa genesis generate --validators 4 --output docker/genesis.toml
+# Devnet keys are written 0600; the containers run as `nonroot` (uid 65532) and
+# would not be able to read them. These are throwaway test keys.
+chmod 0644 docker/genesis.validator*.key
 docker compose -f docker/devnet.yml up -d
 ```
 

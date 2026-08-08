@@ -2,8 +2,13 @@
 #
 # Usage:
 #   1. Generate a key:  karoowa wallet new --output docker/validator.key
-#   2. Start:           docker compose -f docker/docker-compose.yml up -d
-#   3. Check:           curl http://localhost:8545/health
+#   2. Relax key mode:  chmod 0644 docker/validator.key
+#                       (`wallet new` writes 0600 owned by you; this container
+#                       runs as `nonroot`/65532 and cannot read an owner-only
+#                       file bind-mounted from the host. Local dev key only —
+#                       do not do this to a real validator key.)
+#   3. Start:           docker compose -f docker/docker-compose.yml up -d
+#   4. Check:           curl http://localhost:8545/health
 
 services:
   karoowa:

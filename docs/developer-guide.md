@@ -369,6 +369,9 @@ karoowa node \
 
 ```bash
 karoowa genesis generate --validators 4 --output docker/genesis.toml
+# Keys are written 0600; the containers run as `nonroot` (uid 65532) and could
+# not read them. These are throwaway devnet keys.
+chmod 0644 docker/genesis.validator*.key
 docker compose -f docker/devnet.yml up -d
 ```
 

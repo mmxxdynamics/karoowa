@@ -100,6 +100,17 @@ docker run --rm -it \
       --p2p-port 30303
 ```
 
+> **The RPC is unauthenticated and binds `0.0.0.0` by default.** Only publish
+> `8545` on a trusted network.
+>
+> On a bare-metal or systemd host that does not need remote RPC, pass
+> `--rpc-bind 127.0.0.1`. **Do not do this inside a container** — a loopback
+> bind is unreachable through a published port, so `-p 8545:8545` would refuse
+> connections. Restrict container RPC at the network layer instead.
+>
+> Key files are `0600` and owned by the generating user; the image runs as
+> `nonroot` (uid 65532), so a bind-mounted key must be readable by that uid.
+
 ---
 
 ## 3. First-time Setup
@@ -111,6 +122,16 @@ karoowa wallet new --output /var/lib/karoowa/keys/validator.key
 ```
 
 Back up the output file **immediately** and store a copy in cold storage. Losing this key means losing your validator slot. For mainnet, generate keys inside an HSM (see §7).
+
+> **The key file is written `0600`, owned by whoever ran the command.** If you
+> generate it as `root` but run the service as `User=karoowa` (§4.1), the node
+> cannot read it. Either generate it as the service user, or hand it over:
+>
+> ```bash
+> chown karoowa:karoowa /var/lib/karoowa/keys/validator.key
+> ```
+>
+> The same applies to containers — see §2.3.
 
 ### 3.2 Join a network
 
@@ -192,6 +213,12 @@ WantedBy=multi-user.target
 
 `SIGINT` gives the node time to flush RocksDB and release the HA lease cleanly. A 60-second stop timeout covers the normal shutdown path.
 
+**Harden the RPC on a validator.** The RPC binds `0.0.0.0` by default and has no
+authentication of its own, so it exposes node control and mempool submission to
+anything that can reach the host. Unless you deliberately serve remote clients,
+add `--rpc-bind 127.0.0.1` to `ExecStart`, or firewall port 8545. The node logs
+a warning at startup whenever it is bound to a non-loopback address.
+
 ### 4.2 Kubernetes
 
 A minimal `StatefulSet`:
@@ -206,6 +233,17 @@ spec:
   replicas: 1
   template:
     spec:
+      securityContext:
+        # The image already runs as 65532; stated here so the manifest does not
+        # depend on that. fsGroup is what makes mounted volume contents readable
+        # by 65532, and it is required for BOTH the Secret and the PVC paths
+        # below — the kubelet applies volume ownership only when fsGroup is set.
+        # OnRootMismatch avoids a recursive chown of the whole 1Ti volume on
+        # every pod start.
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        fsGroupChangePolicy: OnRootMismatch
       terminationGracePeriodSeconds: 90
       containers:
         - name: karoowa
@@ -249,6 +287,47 @@ spec:
         storageClassName: fast-nvme
         resources: { requests: { storage: 1Ti } }
 ```
+
+**Getting the key onto the pod.** The validator key is `0600` and the image runs
+as uid 65532, so how the key arrives matters.
+
+**Keep `fsGroup: 65532` either way.** The kubelet chowns mounted volume contents
+*only* when `fsGroup` is set — without it, secret files stay `root:root` and the
+pod crash-loops on EACCES.
+
+A `Secret` is the cleaner option, since it keeps the key off the data volume.
+Create it with a data key named `validator.key` — that name becomes the filename
+under the mount point:
+
+```bash
+kubectl create secret generic karoowa-validator-key \
+  --from-file=validator.key=/path/to/validator.key
+```
+
+Then change the container's `--validator-key` argument from
+`/data/validator.key` to **`/keys/validator.key`**, and splice the two blocks
+below into the StatefulSet at the container and pod levels respectively —
+merging the `volumeMounts` entry into the existing one rather than adding a
+second `volumeMounts:` key:
+
+```yaml
+          volumeMounts:
+            - { name: key, mountPath: /keys, readOnly: true }
+      volumes:
+        - name: key
+          secret:
+            secretName: karoowa-validator-key
+            defaultMode: 0400
+```
+
+With `fsGroup` set that lands as `root:65532` mode `0440` — the kubelet ORs a
+read-only mask in, so `0400` is not literally what appears on disk — and uid
+65532 can read it.
+
+If you put the key on the **PVC** instead, note that `fsGroup` is applied at
+volume setup, before any container runs. It does not fix a key written
+afterwards by a root `initContainer`, which stays `root:root` and is unreadable
+at `0600`; have that initContainer `chown 65532:65532` the key itself. See §3.1.
 
 ---
 
@@ -349,6 +428,13 @@ implement the same trait that SoftHsm does.
 
 ### 7.3 Key rotation
 
+> **Rotating a *file-based* key changes its owner.** This applies to
+> `validator.key` (§3.1) and to `softhsm.json`, not to the HSM key ids below.
+> Secret files are written by creating a new file and renaming it over the old
+> one, so the result is owned by whoever ran the command — not by the previous
+> owner. If you rotate as `root` a file that `User=karoowa` reads,
+> `chown karoowa:karoowa` it again afterwards or the node will not restart.
+
 1. Generate the new key in the HSM: `karoowa wallet hsm-generate --key-id validator-2`.
 2. Submit a validator-set change on-chain via governance.
 3. Wait for the change to finalize (2 epochs).
@@ -360,6 +446,12 @@ A key rotation emits an `AuditAction::KeyRotation` event to the SOC 2 audit log.
 ---
 
 ## 8. Backup & Restore
+
+> **Key files are `0600` and owned by the user that created them.** Use an
+> archiver that preserves modes on *extract* (`tar xzpf`, `rsync -a`) — GNU tar
+> always records modes when creating — so a restored key is not
+> silently widened — and after restoring as `root`, `chown` it back to the
+> service user or the node will not be able to read it.
 
 ### 8.1 What to back up
 
@@ -373,7 +465,7 @@ A key rotation emits an `AuditAction::KeyRotation` event to the SOC 2 audit log.
 ```bash
 systemctl stop karoowa
 rm -rf /var/lib/karoowa/chain
-tar xzf backup.tar.gz -C /var/lib/karoowa/
+tar xzpf backup.tar.gz -C /var/lib/karoowa/
 systemctl start karoowa
 ```
 

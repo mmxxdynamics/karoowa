@@ -37,7 +37,7 @@ pub fn run(args: WalletArgs) -> Result<(), Box<dyn std::error::Error>> {
         WalletCommand::New { output } => {
             let kp = Keypair::generate();
             let key_hex = kp.private_key_hex();
-            std::fs::write(&output, &key_hex)?;
+            crate::cmd::write_secret_file(&output, &key_hex)?;
             println!("Address:  {}", kp.address());
             println!("Key file: {}", output.display());
             Ok(())

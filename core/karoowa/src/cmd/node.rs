@@ -11,7 +11,7 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
-use tracing::info;
+use tracing::{info, warn};
 
 #[derive(Args)]
 pub struct NodeArgs {
@@ -34,6 +34,17 @@ pub struct NodeArgs {
     /// RPC listen port
     #[arg(long, default_value = "8545")]
     rpc_port: u16,
+
+    /// Address the RPC binds to.
+    ///
+    /// Defaults to `0.0.0.0`, which is what the node has always done — changing
+    /// it would break every existing deployment on upgrade. But the RPC is
+    /// **unauthenticated**, so a non-loopback bind hands node control and
+    /// mempool submission to anyone who can reach the host. Pass
+    /// `--rpc-bind 127.0.0.1` unless it is firewalled or sits behind an
+    /// authenticating proxy; the node warns at startup when it is not.
+    #[arg(long, default_value = "0.0.0.0")]
+    rpc_bind: std::net::IpAddr,
 
     /// P2P listen port
     #[arg(long, default_value = "30303")]
@@ -63,8 +74,24 @@ pub struct NodeArgs {
 }
 
 pub async fn run(args: NodeArgs) -> Result<(), Box<dyn std::error::Error>> {
-    // Load validator key.
-    let key_hex = std::fs::read_to_string(&args.validator_key)?
+    // Load validator key. Name the path and, on a permission error, say what to
+    // do about it — key files are 0600, so "wrong user" is the likeliest cause
+    // and a bare `Permission denied (os error 13)` gives the operator nothing.
+    let key_hex = std::fs::read_to_string(&args.validator_key)
+        .map_err(|e| {
+            let path = args.validator_key.display();
+            if e.kind() == std::io::ErrorKind::PermissionDenied {
+                format!(
+                    "cannot read validator key {path}: {e}\n\
+                     Key files are written 0600, readable only by their owner. \
+                     Check that this process runs as the user that owns the key \
+                     (`ls -l {path}`), or hand it over with `chown`. In a \
+                     container the key must be readable by uid 65532."
+                )
+            } else {
+                format!("cannot read validator key {path}: {e}")
+            }
+        })?
         .trim()
         .to_string();
     let key_bytes = hex::decode(key_hex.strip_prefix("0x").unwrap_or(&key_hex))?;
@@ -111,9 +138,19 @@ pub async fn run(args: NodeArgs) -> Result<(), Box<dyn std::error::Error>> {
 
     // Start API server.
     let server_config = ServerConfig {
-        bind_addr: SocketAddr::from(([0, 0, 0, 0], args.rpc_port)),
+        bind_addr: SocketAddr::new(args.rpc_bind, args.rpc_port),
         chain_id: 1,
     };
+    if !args.rpc_bind.is_loopback() {
+        warn!(
+            bind = %args.rpc_bind,
+            port = args.rpc_port,
+            "RPC is listening on a non-loopback address and is UNAUTHENTICATED. \
+             Anyone who can reach this host can control the node and submit \
+             transactions. Pass --rpc-bind 127.0.0.1, or firewall the port / \
+             front it with an authenticating proxy."
+        );
+    }
     let (api_addr, _mempool, _subscriptions, _api_handle) =
         start_server(server_config, Arc::clone(&storage), network.clone()).await?;
 
