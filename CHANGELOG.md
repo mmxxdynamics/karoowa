@@ -47,8 +47,9 @@ v1.0 ships. Pre-1.0 releases may make breaking changes between minor versions.
   and the SoftHSM key store (`enterprise/karoowa-hsm`, which holds secret keys
   for every key in the store). The SOC 2 audit log
   (`enterprise/karoowa-audit-log`) is likewise created `0600`, since its records
-  carry HSM key ids, backends and signing reasons. They previously used the process umask, commonly `0644` — any local
-  user or any process sharing the container could read a validator key.
+  carry HSM key ids, backends and signing reasons. All of these previously used
+  the process umask, commonly `0644` — any local user, or any process sharing
+  the container, could read a validator key.
 
   **Migration.** The key must be readable by whoever runs the node:
 
@@ -63,10 +64,12 @@ v1.0 ships. Pre-1.0 releases may make breaking changes between minor versions.
     `docker/test-devnet.sh` now does for you) or `chmod 0644
     docker/validator.key` (single-node `docker-compose.yml`).
 
-  Existing files are also tightened when rewritten. Two consequences of the
+  Existing files are also tightened when rewritten. Three consequences of the
   write being a rename rather than a truncate: the **parent directory must be
-  writable**, and the rewritten file is owned by whoever ran the command — so
-  rotating a key in place as `root` needs a `chown` afterwards.
+  writable**; the rewritten file is owned by whoever ran the command, so
+  rotating a key in place as `root` needs a `chown` afterwards; and a symlink
+  or hard link at the destination is **replaced** rather than written through,
+  so other links keep the old content.
 
 - **BREAKING (artifacts): the musl release targets are no longer published.**
   `x86_64-unknown-linux-musl` and `aarch64-unknown-linux-musl` are removed from
