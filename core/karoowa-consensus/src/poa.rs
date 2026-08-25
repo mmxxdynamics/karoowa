@@ -52,7 +52,6 @@ impl PoAEngine {
         let idx = (height as usize) % self.config.validators.len();
         self.config.validators[idx]
     }
-
 }
 
 #[async_trait]
@@ -338,7 +337,10 @@ mod tests {
         let (state, _) = genesis_state();
         let leader = engine.current_leader(&state);
 
-        let mut block = engine.propose_block(&state, &keypair_for(leader), vec![]).await.unwrap();
+        let mut block = engine
+            .propose_block(&state, &keypair_for(leader), vec![])
+            .await
+            .unwrap();
 
         // Tamper: change proposer to a different validator.
         block.header.proposer = test_validators()[2];
@@ -353,7 +355,10 @@ mod tests {
         let (state, _) = genesis_state();
         let leader = engine.current_leader(&state);
 
-        let mut block = engine.propose_block(&state, &keypair_for(leader), vec![]).await.unwrap();
+        let mut block = engine
+            .propose_block(&state, &keypair_for(leader), vec![])
+            .await
+            .unwrap();
 
         block.header.parent_hash = sha3_256(b"wrong");
 
@@ -367,7 +372,10 @@ mod tests {
         let (state, _) = genesis_state();
         let leader = engine.current_leader(&state);
 
-        let mut block = engine.propose_block(&state, &keypair_for(leader), vec![]).await.unwrap();
+        let mut block = engine
+            .propose_block(&state, &keypair_for(leader), vec![])
+            .await
+            .unwrap();
 
         block.header.height = 999;
 

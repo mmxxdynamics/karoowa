@@ -38,7 +38,6 @@ impl PoSEngine {
     pub fn validator_set(&self) -> Arc<RwLock<ValidatorSet>> {
         Arc::clone(&self.validator_set)
     }
-
 }
 
 #[async_trait]
@@ -321,7 +320,11 @@ mod tests {
         let leader = engine.current_leader(&state);
 
         // Pick the other validator's keypair (not the leader for this height).
-        let wrong = if leader == addr(1) { keypair_for(addr(2)) } else { keypair_for(addr(1)) };
+        let wrong = if leader == addr(1) {
+            keypair_for(addr(2))
+        } else {
+            keypair_for(addr(1))
+        };
         let result = engine.propose_block(&state, &wrong, vec![]).await;
         assert!(matches!(result, Err(ConsensusError::NotLeader)));
     }
@@ -333,7 +336,10 @@ mod tests {
         let state = genesis_state(&vs);
         let leader = engine.current_leader(&state);
 
-        engine.propose_block(&state, &keypair_for(leader), vec![]).await.unwrap();
+        engine
+            .propose_block(&state, &keypair_for(leader), vec![])
+            .await
+            .unwrap();
 
         let vs_arc = engine.validator_set();
         let vs_read = vs_arc.read().await;
@@ -375,7 +381,11 @@ mod tests {
         forged.from = Address::from_public_key(&[7u8; 32]);
 
         let block = engine
-            .propose_block(&state, &keypair_for(leader), vec![make_tx(0), make_tx(1), forged])
+            .propose_block(
+                &state,
+                &keypair_for(leader),
+                vec![make_tx(0), make_tx(1), forged],
+            )
             .await
             .unwrap();
 
@@ -389,7 +399,10 @@ mod tests {
         let state = genesis_state(&vs);
         let leader = engine.current_leader(&state);
 
-        let mut block = engine.propose_block(&state, &keypair_for(leader), vec![]).await.unwrap();
+        let mut block = engine
+            .propose_block(&state, &keypair_for(leader), vec![])
+            .await
+            .unwrap();
 
         // Tamper proposer.
         let other = if leader == addr(1) { addr(2) } else { addr(1) };

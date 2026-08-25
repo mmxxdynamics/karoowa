@@ -146,7 +146,6 @@ impl BFTEngine {
 
         Ok((block, qc))
     }
-
 }
 
 #[async_trait]
@@ -425,7 +424,10 @@ mod tests {
         let state = genesis_state();
         let leader = engine.current_leader(&state);
 
-        let mut block = engine.propose_block(&state, &keypair_for(leader), vec![]).await.unwrap();
+        let mut block = engine
+            .propose_block(&state, &keypair_for(leader), vec![])
+            .await
+            .unwrap();
 
         block.header.proposer = addr(4); // wrong proposer
         assert!(engine.validate_block(&block, &state).is_err());

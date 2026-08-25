@@ -257,7 +257,10 @@ mod tests {
         forged_input.extend_from_slice(leaves[0].as_bytes());
         forged_input.extend_from_slice(leaves[1].as_bytes());
         let forged = sha3_256(&forged_input);
-        let empty_proof = MerkleProof { leaf_index: 0, siblings: vec![] };
+        let empty_proof = MerkleProof {
+            leaf_index: 0,
+            siblings: vec![],
+        };
         assert!(!verify_proof(&root, &forged, &empty_proof));
     }
 

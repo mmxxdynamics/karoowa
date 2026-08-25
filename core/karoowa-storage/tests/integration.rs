@@ -161,7 +161,8 @@ fn commit_state_diff() {
 
     // Build and commit a diff.
     let mut diff = StateDiff::new();
-    diff.apply_transfer(from, to, 300, &from_acct, &to_acct);
+    diff.apply_transfer(from, to, 300, &from_acct, &to_acct)
+        .unwrap();
 
     let state_root = db.commit(&diff).unwrap();
     assert_ne!(state_root, Hash::ZERO);
