@@ -12,6 +12,9 @@ extend-ignore-re = [
     "\\bCriticals\\b",
     # Linera — a separate L1 project we reference for devnet design comparison.
     "\\bLinera\\b",
+    # SimpleContxt — MMXX's workforce platform. The product name is spelled
+    # without the second "e" deliberately; it is not a misspelling of "Context".
+    "\\bSimpleContxt\\b",
 ]
 
 [files]
