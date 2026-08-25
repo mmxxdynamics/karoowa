@@ -64,8 +64,7 @@ impl BlockHeader {
     fn signing_bytes(&self) -> Vec<u8> {
         let mut bare = self.clone();
         bare.consensus_data = Vec::new();
-        let header_bytes =
-            bincode::serialize(&bare).expect("header serialization cannot fail");
+        let header_bytes = bincode::serialize(&bare).expect("header serialization cannot fail");
         let mut msg = Vec::with_capacity(BLOCK_SIGNING_DOMAIN.len() + header_bytes.len());
         msg.extend_from_slice(BLOCK_SIGNING_DOMAIN);
         msg.extend_from_slice(&header_bytes);
@@ -204,7 +203,11 @@ impl Block {
                 self.transactions.len()
             ));
         }
-        let body_bytes: usize = self.transactions.iter().map(Transaction::encoded_size).sum();
+        let body_bytes: usize = self
+            .transactions
+            .iter()
+            .map(Transaction::encoded_size)
+            .sum();
         if body_bytes > MAX_BLOCK_BODY_BYTES {
             return Err(format!(
                 "block body is {body_bytes} bytes, limit is {MAX_BLOCK_BODY_BYTES}"
@@ -477,7 +480,9 @@ mod tests {
     #[test]
     fn size_limits_reject_too_many_transactions() {
         let kp = Keypair::from_seed(&[7u8; 32]);
-        let txs: Vec<Transaction> = (0..=MAX_BLOCK_TXS as u64).map(|n| make_tx(&kp, n)).collect();
+        let txs: Vec<Transaction> = (0..=MAX_BLOCK_TXS as u64)
+            .map(|n| make_tx(&kp, n))
+            .collect();
         let block = make_block(txs);
         let err = block.validate_size_limits().unwrap_err();
         assert!(err.contains("transactions"), "unexpected error: {err}");
@@ -495,7 +500,12 @@ mod tests {
                 Transaction::sign_raw(
                     &kp,
                     Some(Address::from_public_key(&[2u8; 32])),
-                    0, n, 1, 100_000, big.clone(), 1,
+                    0,
+                    n,
+                    1,
+                    100_000,
+                    big.clone(),
+                    1,
                 )
             })
             .collect();

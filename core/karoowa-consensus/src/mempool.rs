@@ -496,8 +496,14 @@ mod tests {
         let kp = Keypair::from_seed(&[1u8; 32]);
         let to = Address::from_public_key(&[2u8; 32]);
         let big = Transaction::sign_raw(
-            &kp, Some(to), 0, 0, 1, 100_000,
-            vec![0u8; karoowa_core::MAX_TX_BYTES + 1], 1,
+            &kp,
+            Some(to),
+            0,
+            0,
+            1,
+            100_000,
+            vec![0u8; karoowa_core::MAX_TX_BYTES + 1],
+            1,
         );
         match pool.insert(big) {
             Err(RejectReason::Invalid(msg)) => assert!(msg.contains("bytes"), "{msg}"),

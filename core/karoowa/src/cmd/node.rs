@@ -195,11 +195,8 @@ pub async fn run(args: NodeArgs) -> Result<(), Box<dyn std::error::Error>> {
                 block_interval: Duration::from_secs(args.block_time),
             };
 
-            let (producer, mut block_rx) = BlockProducer::new(
-                Arc::clone(&engine),
-                producer_config,
-                genesis_header.clone(),
-            );
+            let (producer, mut block_rx) =
+                BlockProducer::new(Arc::clone(&engine), producer_config, genesis_header.clone());
 
             // Bridge the RPC mempool into the producer's pending pool.
             // `kw_sendRawTransaction` admits into the shared mempool; without
@@ -213,8 +210,7 @@ pub async fn run(args: NodeArgs) -> Result<(), Box<dyn std::error::Error>> {
             let mempool_handle = mempool.clone();
             tokio::spawn(async move {
                 const DRAIN_BATCH: usize = 1_000;
-                let mut tick =
-                    tokio::time::interval(Duration::from_millis(500));
+                let mut tick = tokio::time::interval(Duration::from_millis(500));
                 loop {
                     tick.tick().await;
                     let txs = mempool_handle.pending_sorted(DRAIN_BATCH).await;

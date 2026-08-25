@@ -291,10 +291,17 @@ mod tests {
             let q = cfg.quorum_size();
             assert!(3 * q > 2 * n, "n={n}: quorum {q} is not > 2/3");
             // Two quorums must intersect (2q > n).
-            assert!(2 * q > n, "n={n}: quorum {q} does not guarantee intersection");
+            assert!(
+                2 * q > n,
+                "n={n}: quorum {q} does not guarantee intersection"
+            );
         }
         // The specific regressions: n divisible by 3.
-        let q6 = BFTConfig { validators: (1..=6).map(addr).collect(), ..test_config() }.quorum_size();
+        let q6 = BFTConfig {
+            validators: (1..=6).map(addr).collect(),
+            ..test_config()
+        }
+        .quorum_size();
         assert_eq!(q6, 5); // was 4 (exactly 2/3) — unsafe
     }
 
