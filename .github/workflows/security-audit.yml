@@ -1,0 +1,95 @@
+name: Security audit
+
+# CI only runs on push to main, pull_request and merge_group. A vulnerability
+# advisory published against an unchanged Cargo.lock therefore triggers no run
+# at all, so main can go red without anything saying so.
+#
+# That is not hypothetical: RUSTSEC-2026-0258 (h2 unbounded empty DATA frames)
+# was published 2026-08-17 and went unnoticed until 2026-08-25, because nothing
+# merged in between and nothing re-evaluated the lockfile. It was found by
+# accident while triaging an unrelated PR.
+#
+# This workflow re-runs the advisory checks against main on a schedule and
+# raises an issue when they fail, so the next one is noticed by the repo rather
+# than by whoever happens to open the next PR.
+on:
+  schedule:
+    # 07:00 UTC daily. Advisories are published throughout the day; a daily
+    # cadence bounds the blind window to 24h without being noisy.
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: security-audit-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Cargo audit (scheduled)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: taiki-e/install-action@cargo-audit
+      # Matches the CI job: run cargo-audit directly rather than via
+      # rustsec/audit-check, which needs `checks: write`. Ignores come from
+      # .cargo/audit.toml, which cargo-audit reads natively.
+      - run: cargo audit
+
+  deny:
+    name: Cargo deny (scheduled)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check
+          arguments: --all-features
+
+  # Raise a tracking issue when either check fails, so a red main is visible
+  # without anyone watching the Actions tab. Reuses a single open issue rather
+  # than filing a new one per day.
+  report:
+    name: Report failures
+    if: ${{ always() && (needs.audit.result == 'failure' || needs.deny.result == 'failure') }}
+    needs:
+      - audit
+      - deny
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Open or update the advisory tracking issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          AUDIT_RESULT: ${{ needs.audit.result }}
+          DENY_RESULT: ${{ needs.deny.result }}
+        run: |
+          set -euo pipefail
+
+          title='Security advisory check failing on main'
+          body=$(printf '%s\n' \
+            "The scheduled advisory check failed against \`main\`." \
+            "" \
+            "- \`cargo audit\`: ${AUDIT_RESULT}" \
+            "- \`cargo deny\`: ${DENY_RESULT}" \
+            "" \
+            "Run: ${RUN_URL}" \
+            "" \
+            "This means \`main\` is currently red on the advisory checks, and because \`CI gate\` depends on both, **no PR can merge until it is resolved**." \
+            "" \
+            "Reproduce locally with \`cargo audit\` and \`cargo deny check --all-features\`.")
+
+          existing=$(gh issue list --repo "$REPO" --state open --search "$title in:title" --json number --jq '.[0].number // empty')
+
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$REPO" --body "$body"
+            echo "Commented on existing issue #${existing}"
+          else
+            gh issue create --repo "$REPO" --title "$title" --body "$body"
+          fi
