@@ -86,13 +86,27 @@ impl BlockHeader {
 
     /// Verify the proposer signature carried in `consensus_data`.
     ///
-    /// Checks that (a) `consensus_data` decodes to an attestation, (b) the
-    /// attested public key derives `self.proposer`, and (c) the signature is
-    /// valid over the header signing bytes. Returns an error otherwise —
-    /// including for an unsigned (empty) `consensus_data`.
+    /// Checks that (a) `consensus_data` decodes to an attestation, (b) that
+    /// encoding is canonical, (c) the attested public key derives
+    /// `self.proposer`, and (d) the signature is valid over the header signing
+    /// bytes. Returns an error otherwise — including for an unsigned (empty)
+    /// `consensus_data`.
     pub fn verify_proposer_signature(&self) -> Result<(), SignatureError> {
         let attestation: ProposerAttestation =
             bincode::deserialize(&self.consensus_data).map_err(|_| SignatureError::Invalid)?;
+
+        // Require a canonical encoding. `signing_bytes()` clears
+        // `consensus_data`, so the signature does not cover these bytes, but
+        // `hash()` does include them. bincode tolerates trailing bytes, so
+        // without this check a relaying peer could append junk and produce a
+        // block that still verifies yet hashes differently — one signed block
+        // becoming unboundedly many valid distinct blocks. Re-encoding and
+        // demanding byte-equality pins the field without it needing to be
+        // signed (which would be circular, since it carries the signature).
+        let canonical = bincode::serialize(&attestation).map_err(|_| SignatureError::Invalid)?;
+        if canonical != self.consensus_data {
+            return Err(SignatureError::Invalid);
+        }
 
         let pk_bytes: [u8; 32] = attestation
             .proposer_pubkey
@@ -338,6 +352,40 @@ mod tests {
             .header;
         forged.sign_as_proposer(&attacker); // attacker signs, but proposer=kp.address()
         assert!(forged.verify_proposer_signature().is_err());
+    }
+
+    #[test]
+    fn consensus_data_must_be_canonically_encoded() {
+        // Block-hash malleability regression.
+        //
+        // `signing_bytes()` clears `consensus_data`, so the proposer signature
+        // does not cover it, but `hash()` does include it. bincode 1.3
+        // tolerates trailing bytes, so without a canonical-encoding check any
+        // relaying peer could append junk to `consensus_data` and produce a
+        // block that still verifies but hashes differently. One signed block
+        // would become unboundedly many valid distinct blocks, splitting any
+        // honest nodes that accepted different variants.
+        let kp = Keypair::from_seed(&[11u8; 32]);
+        let mut header = BlockBuilder::new(Hash::ZERO, 5, 1700000000, kp.address())
+            .build()
+            .header;
+        header.sign_as_proposer(&kp);
+        assert!(header.verify_proposer_signature().is_ok());
+
+        let mut malleated = header.clone();
+        malleated.consensus_data.extend_from_slice(&[0xAA, 0xBB]);
+
+        // The mutation must change block identity ...
+        assert_ne!(
+            malleated.hash(),
+            header.hash(),
+            "appending to consensus_data must change the block hash"
+        );
+        // ... and must therefore be rejected, or the two hashes are both valid.
+        assert!(
+            malleated.verify_proposer_signature().is_err(),
+            "non-canonical consensus_data must not verify: block-hash malleability"
+        );
     }
 
     #[test]
