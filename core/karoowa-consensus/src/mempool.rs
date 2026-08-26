@@ -95,7 +95,23 @@ impl Mempool {
     ///
     /// Returns `Ok(())` if accepted, or `Err(RejectReason)` if rejected.
     pub fn insert(&mut self, tx: Transaction) -> Result<(), RejectReason> {
-        // 0. Reject forgeries. Nothing upstream validates, so without this
+        // 0. Reject oversized transactions. MAX_TX_BYTES is well below the
+        // block body limit, so anything admitted here always fits in a block —
+        // an oversized tx must never wedge block building.
+        //
+        // This is a length comparison and runs first precisely so it bounds the
+        // signature verification below: verifying first would let a submitter
+        // impose Ed25519 verification over an arbitrarily large body before we
+        // check the very cap that exists to forbid it.
+        let size = tx.encoded_size();
+        if size > karoowa_core::MAX_TX_BYTES {
+            return Err(RejectReason::Invalid(format!(
+                "transaction is {size} bytes, limit is {}",
+                karoowa_core::MAX_TX_BYTES
+            )));
+        }
+
+        // 0b. Reject forgeries. Nothing upstream validates, so without this
         // check `tx.from` is a free-form claim and anyone could submit a
         // transaction "from" any address.
         //
@@ -110,21 +126,11 @@ impl Mempool {
         // below, which evicts an existing transaction. Verifying after it would
         // let an unsigned transaction with a victim's sender+nonce and a small
         // gas bump evict the victim's legitimate transaction before being
-        // rejected itself.
+        // rejected itself. Putting the size check above this does not weaken
+        // that ordering: the size check admits nothing and evicts nothing.
         if let Err(e) = tx.verify_signature() {
             return Err(RejectReason::Invalid(format!(
                 "signature verification failed: {e:?}"
-            )));
-        }
-
-        // 0b. Reject oversized transactions. MAX_TX_BYTES is well below the
-        //     block body limit, so anything admitted here always fits in a
-        //     block — an oversized tx must never wedge block building.
-        let size = tx.encoded_size();
-        if size > karoowa_core::MAX_TX_BYTES {
-            return Err(RejectReason::Invalid(format!(
-                "transaction is {size} bytes, limit is {}",
-                karoowa_core::MAX_TX_BYTES
             )));
         }
 

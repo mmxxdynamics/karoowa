@@ -176,7 +176,15 @@ impl ConsensusEngine for PoSEngine {
             ));
         }
 
-        // 6. Every transaction must carry a valid signature binding it to its
+        // 6. Protocol size limits: cap the per-block cost a proposer can
+        //    impose on every validator and light client. Ordered *before*
+        //    signature verification, which is the expensive cost this cap
+        //    exists to bound.
+        block
+            .validate_size_limits()
+            .map_err(ConsensusError::InvalidBlock)?;
+
+        // 7. Every transaction must carry a valid signature binding it to its
         // `from` address. A block body is attacker-controlled, so the elected
         // leader must not be trusted to have gone through the mempool.
         block
@@ -186,12 +194,6 @@ impl ConsensusEngine for PoSEngine {
                     "transaction at index {index} failed signature verification: {e:?}"
                 ))
             })?;
-
-        // 7. Protocol size limits: cap the per-block cost a proposer can
-        //    impose on every validator and light client.
-        block
-            .validate_size_limits()
-            .map_err(ConsensusError::InvalidBlock)?;
 
         // 8. The proposer must have signed the block.
         block.header.verify_proposer_signature().map_err(|e| {
