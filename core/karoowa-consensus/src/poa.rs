@@ -151,7 +151,16 @@ impl ConsensusEngine for PoAEngine {
             ));
         }
 
-        // 6. Every transaction must carry a valid signature binding it to
+        // 6. Protocol size limits: cap the per-block cost a proposer can
+        //    impose on every validator and light client. Ordered *before*
+        //    signature verification, which is the expensive cost this cap
+        //    exists to bound: verifying signatures first would let an
+        //    oversized block impose exactly the work the limit forbids.
+        block
+            .validate_size_limits()
+            .map_err(ConsensusError::InvalidBlock)?;
+
+        // 7. Every transaction must carry a valid signature binding it to
         // its `from` address. The mempool already rejects forgeries, but a
         // malicious or buggy proposer can put transactions straight into a
         // block, so validation must not trust the proposer's pool.
@@ -162,12 +171,6 @@ impl ConsensusEngine for PoAEngine {
                     "transaction at index {index} failed signature verification: {e:?}"
                 ))
             })?;
-
-        // 7. Protocol size limits: cap the per-block cost a proposer can
-        //    impose on every validator and light client.
-        block
-            .validate_size_limits()
-            .map_err(ConsensusError::InvalidBlock)?;
 
         // 8. The proposer must have signed the block (real authentication,
         //    replacing the old public consensus_data tag).
@@ -329,6 +332,46 @@ mod tests {
             .unwrap();
 
         assert!(engine.validate_block(&block, &state).is_err());
+    }
+
+    #[tokio::test]
+    async fn size_limit_is_checked_before_signature_verification() {
+        // The size cap exists to bound the per-block cost a proposer can impose,
+        // and signature verification is the dominant part of that cost. If
+        // signatures were verified first, an oversized block would impose
+        // exactly the work the cap forbids before being rejected for size.
+        //
+        // Pin the ordering behaviourally: a block that is BOTH oversized AND
+        // full of forged signatures must be rejected for its size, since that
+        // is the check that should have run first.
+        let engine = test_engine();
+        let (state, _) = genesis_state();
+        let leader = engine.current_leader(&state);
+
+        let mut txs = Vec::new();
+        for i in 0..(karoowa_core::MAX_BLOCK_TXS + 1) {
+            let mut forged = make_tx(i as u64);
+            forged.from = Address::from_public_key(&[7u8; 32]);
+            txs.push(forged);
+        }
+
+        let block = engine
+            .propose_block(&state, &keypair_for(leader), txs)
+            .await
+            .unwrap();
+
+        let err = engine
+            .validate_block(&block, &state)
+            .expect_err("oversized block must be rejected");
+        let msg = format!("{err:?}");
+        assert!(
+            msg.contains("transactions") || msg.contains("limit"),
+            "expected a size-limit rejection, got: {msg}"
+        );
+        assert!(
+            !msg.contains("signature verification"),
+            "signatures were verified before the size cap was applied: {msg}"
+        );
     }
 
     #[tokio::test]
