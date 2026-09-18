@@ -12,7 +12,7 @@ description = "Karoowa crypto primitives — hash, keypair, signature, Merkle tr
 [dependencies]
 sha3 = "0.12"
 blake3 = "1"
-ed25519-dalek = { version = "2", features = ["rand_core"] }
+ed25519-dalek = { version = "3", features = ["rand_core"] }
 rand_core = { version = "0.6", features = ["getrandom"] }
 serde = { workspace = true }
 hex = { workspace = true }
