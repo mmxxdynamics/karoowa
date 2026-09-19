@@ -48,15 +48,49 @@ jobs:
           command: check
           arguments: --all-features
 
-  # Raise a tracking issue when either check fails, so a red main is visible
+  # The two jobs above read only RustSec. These two read the other side —
+  # GitHub's alerts and OSV — so that a GHSA-only advisory published against an
+  # unchanged lockfile is noticed on the same 24h cadence as a RUSTSEC one.
+  # Without them the schedule reproduces the original blind spot exactly:
+  # GHSA-vxx9-2994-q338 (yamux, HIGH) was open for 136 days of green scheduled
+  # runs. Issue #59.
+  alerts:
+    name: Dependabot alerts (scheduled)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # `security-events: read` returns 403 on this endpoint; only
+      # `vulnerability-alerts: read` grants it. See ci.yml.
+      vulnerability-alerts: read
+    steps:
+      - uses: actions/checkout@v7
+      # No --on-unreadable override: scheduled runs on main never get the
+      # restricted token that Dependabot and fork PRs do, so an unreadable API
+      # here is a genuine defect and must fail.
+      - name: Fail on open high/critical alerts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/check-dependabot-alerts.sh --threshold high
+
+  osv:
+    name: OSV scan (scheduled)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: taiki-e/install-action@osv-scanner
+      - run: bash scripts/check-osv.sh
+
+  # Raise a tracking issue when any check fails, so a red main is visible
   # without anyone watching the Actions tab. Reuses a single open issue rather
   # than filing a new one per day.
   report:
     name: Report failures
-    if: ${{ always() && (needs.audit.result == 'failure' || needs.deny.result == 'failure') }}
+    if: ${{ always() && contains(needs.*.result, 'failure') }}
     needs:
       - audit
       - deny
+      - alerts
+      - osv
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -69,6 +103,8 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           AUDIT_RESULT: ${{ needs.audit.result }}
           DENY_RESULT: ${{ needs.deny.result }}
+          ALERTS_RESULT: ${{ needs.alerts.result }}
+          OSV_RESULT: ${{ needs.osv.result }}
         run: |
           set -euo pipefail
 
@@ -76,14 +112,17 @@ jobs:
           body=$(printf '%s\n' \
             "The scheduled advisory check failed against \`main\`." \
             "" \
-            "- \`cargo audit\`: ${AUDIT_RESULT}" \
-            "- \`cargo deny\`: ${DENY_RESULT}" \
+            "- \`cargo audit\` (RustSec): ${AUDIT_RESULT}" \
+            "- \`cargo deny\` (RustSec): ${DENY_RESULT}" \
+            "- \`Dependabot alerts\` (GHSA): ${ALERTS_RESULT}" \
+            "- \`OSV scan\` (RustSec + GHSA, GHSA-only findings): ${OSV_RESULT}" \
             "" \
             "Run: ${RUN_URL}" \
             "" \
-            "This means \`main\` is currently red on the advisory checks, and because \`CI gate\` depends on both, **no PR can merge until it is resolved**." \
+            "This means \`main\` is currently red on the advisory checks, and because \`CI gate\` depends on all four, **no PR can merge until it is resolved**." \
             "" \
-            "Reproduce locally with \`cargo audit\` and \`cargo deny check --all-features\`.")
+            "Reproduce locally with \`cargo audit\`, \`cargo deny check --all-features\`," \
+            "\`scripts/check-dependabot-alerts.sh\` and \`scripts/check-osv.sh\`.")
 
           existing=$(gh issue list --repo "$REPO" --state open --search "$title in:title" --json number --jq '.[0].number // empty')
 

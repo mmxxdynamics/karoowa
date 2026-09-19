@@ -1,0 +1,50 @@
+# Accepted-risk allowlist for the two non-RustSec advisory gates:
+#
+#   scripts/check-dependabot-alerts.sh   CI job `Dependabot alerts`
+#   scripts/check-osv.sh                 CI job `OSV scan`
+#
+# Both fail CI on a finding unless its GHSA id appears here. This is the
+# GHSA-keyed sibling of the two RUSTSEC-keyed ignore lists:
+#
+#   deny.toml            [advisories].ignore   (cargo-deny)
+#   .cargo/audit.toml    [advisories].ignore   (cargo-audit)
+#
+# Those two remain the sole authority for anything RustSec knows about. This
+# file only ever covers advisories RustSec does not carry, or carries under an
+# id already ignored there. Nothing is ignored in two places at once.
+#
+# Format, one entry per line:
+#
+#   <GHSA id>  <RUSTSEC id | ->  # why this is accepted risk
+#
+# The second column is the RustSec alias of the same advisory, or `-` when
+# RustSec has no entry for it. It is not decoration: the script asserts that
+# every RUSTSEC id named here is also ignored in *both* files above, so the
+# lists cannot drift apart silently. Use `-` only after checking — a missing
+# RustSec entry is the coverage gap these jobs exist for.
+#
+# Same rule as the other two lists: every entry is tracked debt that MUST be
+# resolved before the v1.0 mainnet cut. Entries are not "fixed", they are
+# "not fixed yet, and here is why that is currently acceptable".
+
+# --- libp2p 0.56 transitive vulnerabilities ---
+# libp2p 0.56 is currently the latest published; the hickory-proto advisories
+# are blocked behind libp2p's version pin on libp2p-mdns. Tracked in deny.toml
+# and .cargo/audit.toml under the same reasoning.
+GHSA-3v94-mw7p-v465  RUSTSEC-2026-0118  # hickory-proto: NSEC3 unbounded loop (via libp2p-dns)
+GHSA-q2qq-hmj6-3wpp  RUSTSEC-2026-0119  # hickory-proto: O(n²) name compression (via libp2p-dns)
+
+# --- yamux: the advisory that proves the gap ---
+# GHSA-vxx9-2994-q338 / CVE-2026-32314, HIGH, open since 2026-05-05. There is
+# no RustSec advisory for it (`~/.cargo/advisory-db/crates/yamux/` does not
+# exist), so `cargo audit` and `cargo deny` are green on it and always were —
+# it is the reason this job exists at all.
+#
+# Not reachable in our binary: libp2p-yamux 0.47 ships two backends and
+# `Config::default()` selects `yamux013` -> yamux 0.13.10, which is patched.
+# The 0.12.1 entry in Cargo.lock is the unselected `yamux012` backend. Clearing
+# it needs libp2p-yamux to drop the 0.12 backend, which is upstream's call.
+#
+# Re-verify this reasoning if libp2p-yamux is upgraded or if any code starts
+# constructing a yamux Config explicitly rather than via `Config::default()`.
+GHSA-vxx9-2994-q338  -  # yamux: remote panic on malformed SYN Data frame; 0.12 backend is not selected
