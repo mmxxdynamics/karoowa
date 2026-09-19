@@ -8,6 +8,12 @@ all-features = true
 
 [advisories]
 # RUSTSEC advisories — fail the build by default.
+#
+# RUSTSEC only. cargo-deny cannot see an advisory that RustSec does not carry,
+# and several do not reach it — see issue #59. Those are gated by the
+# `Dependabot alerts` and `OSV scan` CI jobs and allowlisted in
+# .github/advisory-allowlist.txt; scripts/check-dependabot-alerts.sh asserts
+# that every RUSTSEC id named there also appears in the `ignore` list below.
 # `yanked = "deny"` — restored after `multihash 0.19.5` dropped its
 # core2 dependency (the only yanked crate in our graph).
 yanked = "deny"

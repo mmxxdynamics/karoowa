@@ -41,6 +41,23 @@ cargo deny check
 
 CI runs the same checks plus a multi-OS test matrix and an MSRV build.
 
+### Advisory checks
+
+`cargo deny` and `cargo audit` read the RustSec database only, so an advisory
+with a GHSA but no RUSTSEC entry is invisible to both. Two further gates cover
+that half, and both are in `CI gate`:
+
+```sh
+./scripts/check-dependabot-alerts.sh   # open GitHub alerts, high/critical
+./scripts/check-osv.sh                 # OSV findings that RustSec does not carry
+```
+
+The first needs `gh auth login` and a token that can read Dependabot alerts;
+the second needs [`osv-scanner`](https://github.com/google/osv-scanner) on
+`PATH`. Accepted risks go in `.github/advisory-allowlist.txt`, which the first
+script also checks against the ignore lists in `deny.toml` and
+`.cargo/audit.toml`.
+
 ## Commit-message convention
 
 We use [Conventional Commits](https://www.conventionalcommits.org/) so

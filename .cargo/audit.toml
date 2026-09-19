@@ -5,6 +5,14 @@
 # Both tools surface the same RUSTSEC advisory database; cargo-audit doesn't
 # read deny.toml. Every entry here is tracked debt that must be resolved
 # before the v1.0 mainnet cut.
+#
+# Neither tool sees advisories that RustSec does not carry. Those are gated
+# separately and allowlisted separately, in:
+#
+#   .github/advisory-allowlist.txt   (GHSA-keyed; Dependabot alerts + OSV)
+#
+# scripts/check-dependabot-alerts.sh asserts that every RUSTSEC id named in
+# that file also appears below, so the lists cannot drift apart unnoticed.
 
 [advisories]
 ignore = [

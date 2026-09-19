@@ -150,6 +150,60 @@ jobs:
       # .cargo/audit.toml, which cargo-audit reads natively.
       - run: cargo audit
 
+  # cargo-audit and cargo-deny above read only the RustSec database. An
+  # advisory with a GHSA but no RUSTSEC entry is invisible to both, by
+  # construction — that is how GHSA-vxx9-2994-q338 (yamux, HIGH) stayed
+  # unnoticed for 136 days of green builds. The next two jobs read the other
+  # side: GitHub's own alerts, and OSV (which aggregates RustSec *and* GHSA).
+  # Issue #59.
+  dependabot-alerts:
+    name: Dependabot alerts
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # `vulnerability-alerts: read`, NOT `security-events: read`. Measured:
+      # with security-events the /dependabot/alerts endpoint returns 403
+      # "Resource not accessible by integration"; with vulnerability-alerts it
+      # returns 200. The two are easy to confuse and one of them silently
+      # produces a gate that can never read anything.
+      vulnerability-alerts: read
+    steps:
+      - uses: actions/checkout@v7
+      - name: Fail on open high/critical alerts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_ACTOR: ${{ github.actor }}
+          IS_FORK: ${{ github.event.pull_request.head.repo.fork }}
+        # Dependabot-authored PRs and PRs from forks run with a read-only
+        # GITHUB_TOKEN whatever the permissions block says, so the API may not
+        # be readable there. On those events an unreadable API is reported as a
+        # warning; everywhere else it is a failure. It is never reported as a
+        # pass: PR #29 is this repo's own example of a security job that said
+        # "0 vulnerabilities" while the call behind it was failing.
+        #
+        # Those PRs are not left unchecked — the `OSV scan` job below needs no
+        # token and covers the same GHSA-only blind spot, and this job runs
+        # unrestricted on the push to main and on the daily schedule in
+        # security-audit.yml.
+        run: |
+          mode=fail
+          if [ "$EVENT_ACTOR" = "dependabot[bot]" ] || [ "$IS_FORK" = "true" ]; then
+            mode=warn
+          fi
+          echo "unreadable-API mode: ${mode} (actor=${EVENT_ACTOR} fork=${IS_FORK:-false})"
+          bash scripts/check-dependabot-alerts.sh --threshold high --on-unreadable "$mode"
+
+  osv:
+    name: OSV scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: taiki-e/install-action@osv-scanner
+      # Only fails on findings that carry no RUSTSEC id; anything RustSec
+      # knows about stays the business of cargo-audit / cargo-deny and their
+      # existing ignore lists. See the header of the script.
+      - run: bash scripts/check-osv.sh
+
   typos:
     name: Typos
     runs-on: ubuntu-latest
@@ -213,6 +267,8 @@ jobs:
       - cross-import-guardrail
       - deny
       - audit
+      - dependabot-alerts
+      - osv
       - typos
       - shellcheck
       - coverage
